@@ -58,41 +58,50 @@ private struct GeneralSettingsTab: View {
 
                 // Destination folders
                 SettingsGroup(title: String(localized: "settings.general.folders.title")) {
-                    HStack(spacing: 10) {
-                        Button(String(localized: "settings.general.folders.itunes")) {
-                            openFolder(DeviceCategory.iTunes(productType: "iPhone"))
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Button(String(localized: "settings.general.folders.itunes")) {
+                                openFolder(DeviceCategory.iTunes(productType: "iPhone"))
+                            }
+                            Button(String(localized: "settings.general.folders.configurator")) {
+                                openFolder(.configurator)
+                            }
                         }
-                        Button(String(localized: "settings.general.folders.configurator")) {
-                            openFolder(.configurator)
+                        .controlSize(.regular)
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(String(localized: "settings.general.folders.custom_title"))
+                                .font(.subheadline.weight(.semibold))
+                            Text(settings.customDownloadDirectoryDisplayPath)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+
+                            HStack(spacing: 10) {
+                                Button(String(localized: "settings.general.folders.choose")) {
+                                    settings.chooseCustomDownloadDirectory()
+                                }
+                                Button(String(localized: "settings.general.folders.reset")) {
+                                    settings.resetCustomDownloadDirectory()
+                                }
+                                .disabled(!settings.isUsingCustomDownloadDirectory)
+                                Button(String(localized: "settings.general.folders.open_custom")) {
+                                    openCustomFolder()
+                                }
+                                .disabled(settings.customDownloadDirectoryURL == nil)
+                            }
+
+                            Text(String(localized: "settings.general.folders.custom_footer"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .controlSize(.regular)
                 }
 
-                // Full Disk Access
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "lock.shield.fill")
-                        .foregroundStyle(.orange)
-                        .font(.body)
-                        .frame(width: 20, alignment: .center)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(String(localized: "settings.general.fda.title"))
-                            .fontWeight(.medium)
-                            .font(.callout)
-                        Text(String(localized: "settings.general.fda.body"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Button(String(localized: "settings.general.fda.button")) {
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
-                        }
-                        .buttonStyle(.link)
-                        .font(.caption)
-                    }
-                }
-                .padding(10)
-                .background(Color.orange.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange.opacity(0.25), lineWidth: 1))
+                // Full Disk Access — banner con stato dinamico e guida guidata
+                FDAStatusBanner(showGuide: true)
             }
             .padding(20)
         }
@@ -102,6 +111,11 @@ private struct GeneralSettingsTab: View {
         if let dir = try? category.destinationDirectory() {
             NSWorkspace.shared.open(dir)
         }
+    }
+
+    private func openCustomFolder() {
+        guard let url = settings.customDownloadDirectoryURL else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 
@@ -163,29 +177,45 @@ private struct DownloadSettingsTab: View {
 private struct FolderSizeView: View {
     @State private var itunesSize: String = "…"
     @State private var configuratorSize: String = "…"
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 6) {
+            if settings.isUsingCustomDownloadDirectory {
+                sizeRow(title: String(localized: "settings.general.folders.custom_title"), value: customSize)
+            }
             sizeRow(title: "iTunes Software Updates", value: itunesSize)
             sizeRow(title: "Configurator Firmware", value: configuratorSize)
         }
         .task { await loadSizes() }
+        .onChange(of: settings.customDownloadDirectoryPath) { _, _ in
+            Task { await loadSizes() }
+        }
+    }
+
+    private var customSize: String {
+        guard let url = settings.customDownloadDirectoryURL else { return "N/A" }
+        return folderSizeSync(url)
     }
 
     @MainActor
     private func loadSizes() async {
         let itunes = await Task.detached(priority: .utility) {
-            folderSizeSync(DeviceCategory.iTunes(productType: "iPhone"))
+            folderSizeSync(try? DeviceCategory.iTunes(productType: "iPhone").destinationDirectory())
         }.value
         let config = await Task.detached(priority: .utility) {
-            folderSizeSync(.configurator)
+            folderSizeSync(try? DeviceCategory.configurator.destinationDirectory())
         }.value
         itunesSize = itunes
         configuratorSize = config
     }
 
-    private nonisolated func folderSizeSync(_ category: DeviceCategory) -> String {
-        guard let dir = try? category.destinationDirectory() else { return "N/A" }
+    private nonisolated func folderSizeSync(_ directory: URL?) -> String {
+        guard let dir = directory else { return "N/A" }
+        return folderSizeSync(dir)
+    }
+
+    private nonisolated func folderSizeSync(_ dir: URL) -> String {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: dir,
                                               includingPropertiesForKeys: [.fileSizeKey],
@@ -238,6 +268,16 @@ private struct ScheduleSettingsTab: View {
                 }
 
                 if settings.autoLaunchEnabled {
+                    SettingsGroup(title: String(localized: "settings.schedule.workflow.title")) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(String(localized: "settings.schedule.workflow.body"))
+                                .font(.callout)
+                            Text(String(localized: "settings.schedule.workflow.note"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     SettingsGroup(title: String(localized: "settings.schedule.time.title")) {
                         HStack(spacing: 16) {
                             Stepper(value: $settings.autoLaunchHour, in: 0...23) {
@@ -281,6 +321,53 @@ private struct ScheduleSettingsTab: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.accentColor.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                }
+
+                if settings.autoLaunchEnabled || settings.wakeScheduleActive || settings.wakeScheduleError != nil {
+                    SettingsGroup(title: String(localized: "settings.schedule.wake.title")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: settings.wakeScheduleActive
+                                      ? "bolt.circle.fill" : "bolt.slash.circle")
+                                    .foregroundStyle(settings.wakeScheduleActive ? .green : .secondary)
+                                    .font(.callout)
+                                Text(settings.wakeScheduleActive
+                                     ? String(localized: "settings.schedule.wake.active")
+                                     : String(localized: "settings.schedule.wake.inactive"))
+                                    .font(.callout)
+                            }
+                            if let error = settings.wakeScheduleError {
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.red)
+                                        .font(.caption)
+                                    Text(error)
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            HStack(spacing: 10) {
+                                if settings.autoLaunchEnabled {
+                                    Button(settings.wakeScheduleActive
+                                           ? String(localized: "settings.schedule.wake.update")
+                                           : String(localized: "settings.schedule.wake.configure")) {
+                                        settings.applyWakeSchedule()
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                }
+
+                                Button(String(localized: "settings.schedule.wake.disable")) {
+                                    settings.disableWakeSchedule()
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(!settings.wakeScheduleActive)
+                            }
+                            Text(String(localized: "settings.schedule.wake.footer"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 // Auto-login warning

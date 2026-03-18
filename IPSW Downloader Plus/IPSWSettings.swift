@@ -5,6 +5,7 @@
 
 import Foundation
 import Combine
+import AppKit
 
 // MARK: - Delete Mode
 
@@ -30,13 +31,12 @@ enum Weekday: Int, CaseIterable, Identifiable {
     var id: Int { rawValue }
 
     var shortName: String {
-        Weekday.italianShortSymbols[rawValue - 1]
+        Weekday.localizedShortSymbols[rawValue - 1]
     }
 
-    // DateFormatter è costoso da creare ad ogni accesso, lo cacchiamo come static
-    private static let italianShortSymbols: [String] = {
+    private static let localizedShortSymbols: [String] = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "it_IT")
+        formatter.locale = .autoupdatingCurrent
         return formatter.shortWeekdaySymbols.map { $0.capitalized }
     }()
 }
@@ -67,7 +67,7 @@ final class AppSettings: ObservableObject {
     @Published var autoLaunchEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoLaunchEnabled, forKey: "autoLaunchEnabled")
-            scheduleOrRemoveLaunchAgent()
+            updateSchedulingConfiguration()
         }
     }
 
@@ -75,7 +75,7 @@ final class AppSettings: ObservableObject {
     @Published var autoLaunchHour: Int {
         didSet {
             UserDefaults.standard.set(autoLaunchHour, forKey: "autoLaunchHour")
-            scheduleOrRemoveLaunchAgent()
+            updateSchedulingConfiguration()
         }
     }
 
@@ -83,7 +83,7 @@ final class AppSettings: ObservableObject {
     @Published var autoLaunchMinute: Int {
         didSet {
             UserDefaults.standard.set(autoLaunchMinute, forKey: "autoLaunchMinute")
-            scheduleOrRemoveLaunchAgent()
+            updateSchedulingConfiguration()
         }
     }
 
@@ -92,9 +92,17 @@ final class AppSettings: ObservableObject {
         didSet {
             let arr = Array(autoLaunchDays)
             UserDefaults.standard.set(arr, forKey: "autoLaunchDays")
-            scheduleOrRemoveLaunchAgent()
+            updateSchedulingConfiguration()
         }
     }
+
+    // MARK: Wake Schedule State
+
+    /// true se `pmset repeat wakeorpoweron` è stato impostato con successo
+    @Published var wakeScheduleActive: Bool = false
+
+    /// Eventuale errore nell'impostare la sveglia pmset
+    @Published var wakeScheduleError: String? = nil
 
     // MARK: Download
 
@@ -111,6 +119,12 @@ final class AppSettings: ObservableObject {
     /// Notifica macOS al termine di ogni download
     @Published var notifyOnDownloadComplete: Bool {
         didSet { UserDefaults.standard.set(notifyOnDownloadComplete, forKey: "notifyOnDownloadComplete") }
+    }
+
+    /// Cartella radice personalizzata per i firmware IPSW.
+    /// Se vuota, l'app usa le cartelle di default di iTunes / Apple Configurator.
+    @Published var customDownloadDirectoryPath: String {
+        didSet { UserDefaults.standard.set(customDownloadDirectoryPath, forKey: "customDownloadDirectoryPath") }
     }
 
     // MARK: Product Type Filters
@@ -168,33 +182,84 @@ final class AppSettings: ObservableObject {
         maxConcurrentDownloads     = ud.object(forKey: "maxConcurrentDownloads") as? Int ?? 3
         verifyChecksumAfterDownload = ud.object(forKey: "verifyChecksumAfterDownload") as? Bool ?? true
         notifyOnDownloadComplete    = ud.object(forKey: "notifyOnDownloadComplete") as? Bool ?? true
+        customDownloadDirectoryPath = ud.string(forKey: "customDownloadDirectoryPath") ?? ""
 
         let days = ud.array(forKey: "autoLaunchDays") as? [Int] ?? []
         autoLaunchDays = Set(days)
 
         let excluded = ud.array(forKey: "excludedProductTypes") as? [String] ?? []
         excludedProductTypes = Set(excluded)
+
+        // Legge lo stato attuale della sveglia pmset
+        wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
     }
 
     // MARK: - LaunchAgent
 
     private var launchAgentPlistURL: URL? {
-        guard let libraryURL = try? FileManager.default.url(
-            for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-        else { return nil }
+        // homeDirectoryForCurrentUser bypassa la sandbox e punta alla ~/Library reale
+        let libraryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library")
         return libraryURL
             .appendingPathComponent("LaunchAgents")
             .appendingPathComponent("com.icosisenpai.ipsw-downloader-plus.plist")
     }
 
-    func scheduleOrRemoveLaunchAgent() {
-        guard let plistURL = launchAgentPlistURL else { return }
-
-        if autoLaunchEnabled {
-            installLaunchAgent(at: plistURL)
-        } else {
-            removeLaunchAgent(at: plistURL)
+    private func updateSchedulingConfiguration() {
+        guard autoLaunchEnabled else {
+            disableScheduling()
+            return
         }
+
+        installLaunchAgent()
+        if wakeScheduleActive {
+            wakeScheduleActive = false
+            wakeScheduleError = String(localized: "settings.schedule.wake.needs_update")
+        } else {
+            wakeScheduleError = nil
+        }
+    }
+
+    func applyWakeSchedule() {
+        guard autoLaunchEnabled else {
+            wakeScheduleActive = false
+            wakeScheduleError = String(localized: "settings.schedule.wake.enable_first")
+            return
+        }
+
+        installLaunchAgent()
+        let error = WakeScheduler.scheduleWake(
+            hour: autoLaunchHour,
+            minute: autoLaunchMinute,
+            days: autoLaunchDays
+        )
+        wakeScheduleError = error
+        wakeScheduleActive = (error == nil)
+    }
+
+    func disableWakeSchedule() {
+        let error = WakeScheduler.cancelWake()
+        if let error {
+            wakeScheduleError = error
+            wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
+        } else {
+            wakeScheduleActive = false
+            wakeScheduleError = nil
+        }
+    }
+
+    private func disableScheduling() {
+        removeLaunchAgent()
+        wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
+        if wakeScheduleActive {
+            wakeScheduleError = String(localized: "settings.schedule.wake.disable_separately")
+        } else {
+            wakeScheduleError = nil
+        }
+    }
+
+    private func installLaunchAgent() {
+        guard let plistURL = launchAgentPlistURL else { return }
+        installLaunchAgent(at: plistURL)
     }
 
     private func installLaunchAgent(at plistURL: URL) {
@@ -237,6 +302,11 @@ final class AppSettings: ObservableObject {
         } catch {
             // Logging silenzioso — non critico
         }
+    }
+
+    private func removeLaunchAgent() {
+        guard let plistURL = launchAgentPlistURL else { return }
+        removeLaunchAgent(at: plistURL)
     }
 
     private func removeLaunchAgent(at plistURL: URL) {
@@ -290,5 +360,45 @@ final class AppSettings: ObservableObject {
             .compactMap { Weekday(rawValue: $0)?.shortName }
             .joined(separator: ", ")
         return String(format: String(localized: "schedule.days"), names, time)
+    }
+
+    var isUsingCustomDownloadDirectory: Bool {
+        !customDownloadDirectoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var customDownloadDirectoryURL: URL? {
+        Self.storedCustomDownloadDirectoryURL()
+    }
+
+    var customDownloadDirectoryDisplayPath: String {
+        customDownloadDirectoryURL?.path(percentEncoded: false) ?? String(localized: "settings.general.folders.default_path")
+    }
+
+    @MainActor
+    func chooseCustomDownloadDirectory() {
+        let panel = NSOpenPanel()
+        panel.title = String(localized: "settings.general.folders.choose")
+        panel.message = String(localized: "settings.general.folders.choose_message")
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        if let url = customDownloadDirectoryURL {
+            panel.directoryURL = url
+        }
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        customDownloadDirectoryPath = url.standardizedFileURL.path
+    }
+
+    func resetCustomDownloadDirectory() {
+        customDownloadDirectoryPath = ""
+    }
+
+    nonisolated static func storedCustomDownloadDirectoryURL() -> URL? {
+        let rawPath = UserDefaults.standard.string(forKey: "customDownloadDirectoryPath") ?? ""
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(fileURLWithPath: trimmed, isDirectory: true).standardizedFileURL
     }
 }

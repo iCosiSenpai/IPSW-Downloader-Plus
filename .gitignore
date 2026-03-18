@@ -13,6 +13,8 @@ DerivedData/
 
 # Build output
 build/
+Products/
+*.app
 *.ipa
 *.dSYM.zip
 *.dSYM
@@ -30,3 +32,7 @@ Package.resolved
 
 # Logs
 *.log
+
+# Local tooling
+.claude/
+Application/

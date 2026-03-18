@@ -6,10 +6,18 @@
 "sidebar.deselect_all.help" = "Deseleziona tutti";
 "sidebar.select_all.help" = "Seleziona tutti";
 "sidebar.nav_title" = "Dispositivi";
+"sidebar.sort.label" = "Ordina per";
+"sidebar.sort.order" = "Inverti ordine";
+"sidebar.sort.name" = "Nome";
+"sidebar.sort.type" = "Tipo device";
+"sidebar.sort.version" = "Versione firmware";
+"sidebar.sort.release_date" = "Data firmware";
+"sidebar.sort.model_release" = "Data uscita modello";
 "sidebar.toolbar.download_folder" = "Cartella download";
 "sidebar.toolbar.download_folder.help" = "Apri cartella IPSW in Finder";
 "sidebar.toolbar.template" = "Template selezione";
 "sidebar.toolbar.template.help" = "Applica un template di selezione dispositivi";
+"sidebar.toolbar.settings.help" = "Apri impostazioni";
 "sidebar.template.latest_ios" = "Ultimi iOS/iPadOS (API)";
 "sidebar.template.loading" = "Caricamento…";
 "sidebar.template.vintage" = "Vintage (Apple 102772)";
@@ -19,6 +27,10 @@
 "detail.empty" = "Seleziona uno o più dispositivi dalla lista";
 "detail.header.selected" = "%lld dispositivo/i selezionato/i";
 "detail.download_all" = "Scarica tutti";
+"detail.section.active" = "Attivi";
+"detail.section.ready" = "Pronti";
+"detail.section.completed" = "Completati";
+"detail.section.failed" = "Problemi";
 
 /* ContentView — Download card */
 "download.cancel" = "Annulla download";
@@ -26,22 +38,36 @@
 "download.signed" = "Firmato";
 "download.verifying" = "Verifica checksum SHA1…";
 "download.in_progress" = "Download in corso…";
+"download.queued" = "In coda";
 "download.completed" = "Download completato";
 "download.show_in_finder" = "Mostra in Finder";
 "download.action.download" = "Scarica";
 "download.action.cancel" = "Annulla";
 "download.action.verifying" = "Verifica…";
 "download.action.redownload" = "Ri-scarica";
+"download.local_file_missing" = "Il firmware locale è stato spostato o cancellato.";
 "download.template.error" = "Impossibile determinare l'ultima versione iOS: %@";
+"footer.donate" = "una donazione per supportare il mio lavoro";
+"footer.made_with" = "Made with";
+"footer.by_author" = "by iCosiSenpai";
 
 /* WelcomeView */
 "welcome.title" = "Benvenuto in IPSW Downloader Plus!";
 "welcome.credits.by" = "di Pico Mitchell (Free Geek)";
 "welcome.description1" = "IPSW Downloader Plus scarica in batch i firmware IPSW più recenti da Apple e li posiziona nelle cartelle corrette di iTunes Software Updates o Apple Configurator Firmware, così da essere rilevati automaticamente da Finder e/o Apple Configurator.";
 "welcome.description2" = "Puoi configurare quali firmware scaricare per tipo di dispositivo: iPhone, iPad, iPod touch, Apple TV, HomePod mini, Apple Vision, T2 Mac (iBridge) e Apple Silicon Mac. Puoi anche pianificare un avvio automatico per mantenere sempre aggiornati tutti i tuoi firmware IPSW.";
-"welcome.fda.title" = "Accesso completo al disco richiesto";
-"welcome.fda.body" = "Per gestire la cartella Apple Configurator Firmware, devi abilitare Full Disk Access in Impostazioni di Sistema → Privacy e Sicurezza → Accesso completo al disco.";
+"welcome.fda.title" = "Accesso completo al disco";
+"welcome.fda.body" = "Per gestire la cartella Apple Configurator Firmware, abilita Full Disk Access in Impostazioni di Sistema → Privacy e Sicurezza → Accesso completo al disco.";
 "welcome.fda.button" = "Apri Privacy e Sicurezza…";
+"welcome.fda.granted" = "Concesso";
+"welcome.fda.granted.body" = "Full Disk Access è attivo. IPSW Downloader Plus può scrivere in tutte le cartelle necessarie.";
+"welcome.fda.recheck" = "Verifica di nuovo il permesso";
+"welcome.fda.step1" = "Apri Impostazioni di Sistema → Privacy e Sicurezza → Accesso completo al disco";
+"welcome.fda.step2" = "Clicca il pulsante + e aggiungi IPSW Downloader Plus";
+"welcome.fda.step3" = "Attiva il toggle accanto all'app, poi torna qui e clicca \"Verifica di nuovo il permesso\"";
+"fda.required.title" = "Accesso Completo Al Disco Richiesto";
+"fda.required.body" = "IPSW Downloader Plus scrive i firmware direttamente nelle vere cartelle della Libreria utente, come ~/Library/iTunes e la cache firmware di Apple Configurator. Concedi subito il Full Disk Access prima di usare l'app.";
+"fda.required.quit" = "Esci";
 "welcome.folders.title" = "Cartelle gestite";
 "welcome.folders.itunes.title" = "iPhone · iPad · iPod touch";
 "welcome.folders.itunes.desc" = "Salvati in iTunes Software Updates — rilevati sia da Finder che da Apple Configurator.";
@@ -66,12 +92,23 @@
 "welcome.security.bullet1" = "Tutti i firmware vengono scaricati solo da domini Apple ufficiali (appldnld.apple.com, updates.cdn-apple.com).";
 "welcome.security.bullet2" = "Dopo ogni download viene verificato il checksum SHA1 fornito dall'API ipsw.me.";
 "welcome.security.bullet3" = "I file con dimensione o checksum errati vengono automaticamente riscartati e riscaricati.";
+"welcome.security.fda_required.title" = "Il Full Disk Access è obbligatorio per le cartelle di default";
+"welcome.security.fda_required.body" = "Se vuoi che IPSW Downloader Plus salvi direttamente nelle cartelle standard di iTunes e Apple Configurator, il Full Disk Access è obbligatorio. Senza quel permesso l'app non può scriverci.";
+"welcome.security.fda_required.custom" = "È attiva una destinazione personalizzata in %@. In questo caso l'app può salvare lì anche senza Full Disk Access, ma non userà più le cartelle Apple di default.";
+"welcome.custom_folder.warning_title" = "Destinazione personalizzata";
+"welcome.custom_folder.warning_body" = "Puoi cambiare la cartella di default dalle impostazioni. Se lo fai, i download non finiranno più nelle cartelle standard di iTunes e Apple Configurator.";
+"welcome.custom_folder.warning_settings" = "Puoi sovrascrivere le cartelle di default dalle impostazioni se preferisci salvare tutti i firmware altrove.";
+"welcome.custom_folder.warning_active" = "È già attiva una destinazione personalizzata: %@. I download finiranno lì invece che nelle cartelle Apple di default.";
 "welcome.cta.show_on_startup" = "Mostra questa schermata ad ogni avvio";
 "welcome.cta.settings" = "Configura le impostazioni";
+"welcome.cta.back" = "Indietro";
+"welcome.cta.next" = "Avanti";
 "welcome.cta.close" = "Chiudi";
 
 /* SettingsView */
 "settings.tab.general" = "Generale";
+"settings.window.title" = "Impostazioni";
+"settings.menu.open" = "Impostazioni…";
 "settings.tab.download" = "Download";
 "settings.tab.schedule" = "Pianificazione";
 "settings.tab.devices" = "Dispositivi";
@@ -82,6 +119,13 @@
 "settings.general.folders.title" = "Cartelle di destinazione";
 "settings.general.folders.itunes" = "Cartella iTunes…";
 "settings.general.folders.configurator" = "Cartella Configurator…";
+"settings.general.folders.custom_title" = "Cartella download personalizzata";
+"settings.general.folders.choose" = "Scegli cartella…";
+"settings.general.folders.choose_message" = "Scegli una cartella in cui IPSW Downloader Plus dovrà salvare i firmware al posto delle cartelle Apple di default.";
+"settings.general.folders.reset" = "Usa cartelle di default";
+"settings.general.folders.open_custom" = "Apri cartella personalizzata";
+"settings.general.folders.custom_footer" = "Quando una cartella personalizzata è attiva, l'app salva lì i firmware e non usa più le cartelle standard di iTunes o Apple Configurator.";
+"settings.general.folders.default_path" = "Uso delle cartelle Apple di default";
 "settings.general.fda.title" = "Accesso completo al disco richiesto";
 "settings.general.fda.body" = "Per accedere alla cartella Apple Configurator Firmware, abilita Full Disk Access in Impostazioni di Sistema → Privacy e Sicurezza → Accesso completo al disco.";
 "settings.general.fda.button" = "Apri Privacy e Sicurezza…";
@@ -100,6 +144,9 @@
 "settings.schedule.autolaunch.title" = "Avvio automatico";
 "settings.schedule.autolaunch.toggle" = "Abilita pianificazione automatica";
 "settings.schedule.autolaunch.footer" = "Installa un LaunchAgent in ~/Library/LaunchAgents che avvia l'app all'orario scelto per scaricare i firmware aggiornati.";
+"settings.schedule.workflow.title" = "Come Funziona";
+"settings.schedule.workflow.body" = "Avvio automatico e sveglia del Mac sono separati. Attivare la pianificazione salva subito l'orario dell'app. La sveglia del Mac richiede un passaggio aggiuntivo con autorizzazione amministratore.";
+"settings.schedule.workflow.note" = "Se cambi orario o giorni dopo aver configurato la sveglia del Mac, aggiorna di nuovo la sveglia.";
 "settings.schedule.time.title" = "Orario";
 "settings.schedule.time.hour" = "Ore: %@";
 "settings.schedule.time.minute" = "Min: %@";
@@ -116,7 +163,24 @@
 "schedule.every_day" = "Ogni giorno alle %@";
 "schedule.days" = "%@ alle %@";
 
+/* WakeScheduler */
+"wake.error.cancelled" = "Autorizzazione annullata dall'utente.";
+"wake.error.unknown" = "Errore sconosciuto durante la pianificazione della sveglia.";
+
+/* SettingsView — Sveglia Mac */
+"settings.schedule.wake.title" = "Sveglia Mac";
+"settings.schedule.wake.active" = "Sveglia attiva — il Mac si accenderà 2 min prima dell'avvio";
+"settings.schedule.wake.inactive" = "Sveglia non configurata — richiede password amministratore";
+"settings.schedule.wake.configure" = "Configura Sveglia Mac";
+"settings.schedule.wake.update" = "Aggiorna Sveglia Mac";
+"settings.schedule.wake.disable" = "Disattiva Sveglia Mac";
+"settings.schedule.wake.needs_update" = "Orario o giorni sono cambiati. Aggiorna la sveglia del Mac per allinearla alla nuova pianificazione.";
+"settings.schedule.wake.enable_first" = "Abilita prima la pianificazione automatica.";
+"settings.schedule.wake.disable_separately" = "La pianificazione automatica è stata disattivata. La sveglia del Mac potrebbe essere ancora attiva e può essere disattivata separatamente qui sotto.";
+"settings.schedule.wake.footer" = "Usa 'pmset repeat wakeorpoweron' per svegliare o accendere il Mac prima dell'avvio pianificato. Richiede la password di amministratore una volta sola.";
+
 /* IPSWViewModel */
 "error.no_signed_firmware" = "Nessun firmware firmato disponibile";
+"error.full_disk_access_required" = "È richiesto il Full Disk Access per scrivere i file IPSW nelle cartelle della Libreria utente.";
 "template.error.latest_ios" = "Impossibile determinare l'ultima versione iOS: %@";
 "welcome.title.developer" = "Sviluppato da iCosiSenpai";

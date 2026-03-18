@@ -15,26 +15,57 @@ struct ContentView: View {
         VStack(spacing: 0) {
             navigationContainer
 
-            // Footer with GitHub link
-            HStack {
+            // Footer links
+            HStack(spacing: 16) {
+                Link(destination: URL(string: "https://paypal.me/AlessioCosi")!) {
+                    HStack(spacing: 8) {
+                        Text("PayPal")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color(red: 0.0, green: 0.38, blue: 0.75), Color(red: 0.0, green: 0.62, blue: 0.89)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                        Text(String(localized: "footer.donate"))
+                            .font(.callout.weight(.semibold))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
                 Spacer()
+
                 Link(destination: URL(string: "https://github.com/iCosiSenpai")!) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "chevron.left.forwardslash.chevron.right")
-                            .font(.caption2)
-                        Text("iCosiSenpai")
-                            .font(.caption2)
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                        Text(String(localized: "footer.made_with"))
+                            .font(.callout)
+                        Image(systemName: "heart.fill")
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                        Text(String(localized: "footer.by_author"))
+                            .font(.callout.weight(.semibold))
                     }
                     .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(.bar)
             .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
-        .frame(minWidth: 900, minHeight: 540)
+        .frame(minWidth: 980, minHeight: 600)
         .task {
             await viewModel.loadDevices()
         }
@@ -62,6 +93,7 @@ struct ContentView: View {
 
 struct SidebarView: View {
     @ObservedObject var viewModel: IPSWViewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -81,6 +113,37 @@ struct SidebarView: View {
             }
             .padding(8)
             .background(.background.opacity(0.6))
+            .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
+
+            HStack(spacing: 8) {
+                Picker(String(localized: "sidebar.sort.label"), selection: $viewModel.sortOption) {
+                    ForEach(SidebarSortOption.allCases) { option in
+                        Text(option.localizedTitle).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+
+                Button {
+                    viewModel.sortAscending.toggle()
+                } label: {
+                    Image(systemName: viewModel.sortAscending ? "arrow.up" : "arrow.down")
+                }
+                .buttonStyle(.borderless)
+                .help(String(localized: "sidebar.sort.order"))
+
+                Spacer()
+
+                Text(viewModel.activeSortSummary)
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.accentColor.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(.bar)
             .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
 
             // Device List
@@ -151,6 +214,14 @@ struct SidebarView: View {
                     Label(String(localized: "sidebar.toolbar.download_folder"), systemImage: "folder")
                 }
                 .help(String(localized: "sidebar.toolbar.download_folder.help"))
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    openWindow(id: "settings")
+                } label: {
+                    Label(String(localized: "settings.tab.general"), systemImage: "gearshape")
+                }
+                .help(String(localized: "sidebar.toolbar.settings.help"))
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -253,6 +324,11 @@ struct DeviceRowView: View {
         switch state {
         case .idle:
             EmptyView()
+        case .queued:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small)
+                Text(String(localized: "download.queued")).font(.caption2).foregroundStyle(.secondary)
+            }
         case .downloading(let progress):
             HStack(spacing: 6) {
                 ProgressView(value: progress)
@@ -282,6 +358,44 @@ struct DeviceRowView: View {
 struct DetailView: View {
     @ObservedObject var viewModel: IPSWViewModel
 
+    private var activeDevices: [IPSWDevice] {
+        viewModel.orderedSelectedDevices.filter { device in
+            switch viewModel.downloadState(for: device) {
+            case .queued, .downloading, .verifying:
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
+    private var readyDevices: [IPSWDevice] {
+        viewModel.orderedSelectedDevices.filter { device in
+            if case .idle = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
+    }
+
+    private var completedDevices: [IPSWDevice] {
+        viewModel.orderedSelectedDevices.filter { device in
+            if case .completed = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
+    }
+
+    private var failedDevices: [IPSWDevice] {
+        viewModel.orderedSelectedDevices.filter { device in
+            if case .failed = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
+    }
+
     var body: some View {
         if viewModel.selectedDeviceIDs.isEmpty {
             VStack(spacing: 12) {
@@ -295,51 +409,109 @@ struct DetailView: View {
         } else {
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    Text(String(format: String(localized: "detail.header.selected"), viewModel.selectedDeviceIDs.count))
-                        .font(.headline)
-                    Spacer()
-                    Button {
-                        viewModel.downloadSelectedDevices()
-                    } label: {
-                        Label(String(localized: "detail.download_all"), systemImage: "arrow.down.circle.fill")
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(String(format: String(localized: "detail.header.selected"), viewModel.selectedDeviceIDs.count))
+                            .font(.headline)
+                        Spacer()
+                        Button {
+                            viewModel.downloadSelectedDevices()
+                        } label: {
+                            Label(String(localized: "detail.download_all"), systemImage: "arrow.down.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.selectedDeviceIDs.isEmpty)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.selectedDeviceIDs.isEmpty)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            SummaryChip(title: String(localized: "detail.section.active"), count: activeDevices.count, color: .blue)
+                            SummaryChip(title: String(localized: "detail.section.ready"), count: readyDevices.count, color: .secondary)
+                            SummaryChip(title: String(localized: "detail.section.completed"), count: completedDevices.count, color: .green)
+                            SummaryChip(title: String(localized: "detail.section.failed"), count: failedDevices.count, color: .red)
+                        }
+                    }
                 }
                 .padding()
                 .background(.background)
                 .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
 
                 List {
-                    ForEach(viewModel.orderedSelectedDevices) { device in
-                        DownloadTaskCard(device: device, viewModel: viewModel)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-                            .modifier(CompatibleListRowSeparatorHidden())
-                            .listRowBackground(Color.clear)
-                            .contextMenu {
-                                let state = viewModel.downloadState(for: device)
-                                if case .downloading = state {
-                                    Button(role: .destructive) {
-                                        viewModel.cancelDownload(for: device)
-                                    } label: {
-                                        Label(String(localized: "download.cancel"), systemImage: "stop.circle")
-                                    }
-                                }
-                                Button(role: .destructive) {
-                                    viewModel.removeDevice(device)
-                                } label: {
-                                    Label(String(localized: "download.remove"), systemImage: "trash")
-                                }
-                            }
-                    }
-                    .onDelete { offsets in
-                        viewModel.removeDevices(at: offsets)
-                    }
+                    DownloadSectionList(title: String(localized: "detail.section.active"), devices: activeDevices, viewModel: viewModel)
+                    DownloadSectionList(title: String(localized: "detail.section.ready"), devices: readyDevices, viewModel: viewModel)
+                    DownloadSectionList(title: String(localized: "detail.section.completed"), devices: completedDevices, viewModel: viewModel)
+                    DownloadSectionList(title: String(localized: "detail.section.failed"), devices: failedDevices, viewModel: viewModel)
                 }
-                .listStyle(.plain)
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
+                .background(Color(NSColor.controlBackgroundColor))
             }
             .navigationTitle(String(localized: "sidebar.toolbar.download_folder"))
+        }
+    }
+}
+
+private struct SummaryChip: View {
+    let title: String
+    let count: Int
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("\(count)")
+                .font(.caption.weight(.bold))
+                .monospacedDigit()
+            Text(title)
+                .font(.caption.weight(.semibold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.12))
+        .foregroundStyle(color)
+        .clipShape(Capsule())
+    }
+}
+
+private struct DownloadSectionList: View {
+    let title: String
+    let devices: [IPSWDevice]
+    @ObservedObject var viewModel: IPSWViewModel
+
+    var body: some View {
+        if !devices.isEmpty {
+            Section {
+                ForEach(devices) { device in
+                    DownloadTaskCard(device: device, viewModel: viewModel)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                        .modifier(CompatibleListRowSeparatorHidden())
+                        .listRowBackground(Color.clear)
+                        .contextMenu {
+                            let state = viewModel.downloadState(for: device)
+                            if case .downloading = state {
+                                Button(role: .destructive) {
+                                    viewModel.cancelDownload(for: device)
+                                } label: {
+                                    Label(String(localized: "download.cancel"), systemImage: "stop.circle")
+                                }
+                            } else if case .queued = state {
+                                Button(role: .destructive) {
+                                    viewModel.cancelDownload(for: device)
+                                } label: {
+                                    Label(String(localized: "download.cancel"), systemImage: "stop.circle")
+                                }
+                            }
+                            Button(role: .destructive) {
+                                viewModel.removeDevice(device)
+                            } label: {
+                                Label(String(localized: "download.remove"), systemImage: "trash")
+                            }
+                        }
+                }
+            } header: {
+                Text(title)
+                    .font(.caption.weight(.bold))
+                    .textCase(.uppercase)
+            }
         }
     }
 }
@@ -365,26 +537,31 @@ struct DownloadTaskCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                statusBadge
                 actionButton
             }
 
             // Firmware info
             if let fw = task?.firmware {
-                HStack(spacing: 16) {
-                    Label("\(device.osLabel) \(fw.version)", systemImage: "cpu")
-                    Label(fw.buildid, systemImage: "number")
-                    Label(fw.filesizeMB, systemImage: "internaldrive")
-                    if fw.signed {
-                        Label(String(localized: "download.signed"), systemImage: "checkmark.seal.fill")
-                            .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 16) {
+                        Label("\(device.osLabel) \(fw.version)", systemImage: "cpu")
+                        Label(fw.buildid, systemImage: "number")
+                        Label(fw.filesizeMB, systemImage: "internaldrive")
                     }
-                    switch device.category {
-                    case .iTunes(let pt):
-                        Label("iTunes / \(pt)", systemImage: "music.note")
-                            .help("~/Library/iTunes/\(pt) Software Updates")
-                    case .configurator:
-                        Label("Configurator", systemImage: "apps.iphone")
-                            .help("~/Library/Group Containers/K36BKF7T3D…/Firmware")
+                    HStack(spacing: 16) {
+                        if fw.signed {
+                            Label(String(localized: "download.signed"), systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                        }
+                        switch device.category {
+                        case .iTunes(let pt):
+                            Label("iTunes / \(pt)", systemImage: "music.note")
+                                .help("~/Library/iTunes/\(pt) Software Updates")
+                        case .configurator:
+                            Label("Configurator", systemImage: "apps.iphone")
+                                .help("~/Library/Group Containers/K36BKF7T3D…/Firmware")
+                        }
                     }
                 }
                 .font(.caption)
@@ -393,6 +570,13 @@ struct DownloadTaskCard: View {
 
             // Progress / state
             switch state {
+            case .queued:
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(String(localized: "download.queued"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             case .verifying:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -441,9 +625,12 @@ struct DownloadTaskCard: View {
             }
         }
         .padding()
-        .background(.background)
+        .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(cardBorder, lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -457,6 +644,15 @@ struct DownloadTaskCard: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+        case .queued:
+            Button {
+                viewModel.cancelDownload(for: device)
+            } label: {
+                Label(String(localized: "download.action.cancel"), systemImage: "stop.circle")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(.red)
         case .downloading:
             Button {
                 viewModel.cancelDownload(for: device)
@@ -481,6 +677,60 @@ struct DownloadTaskCard: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+        }
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        switch state {
+        case .idle:
+            EmptyView()
+        case .queued:
+            badge(String(localized: "download.queued"), color: .orange)
+        case .downloading:
+            badge(String(localized: "download.in_progress"), color: .blue)
+        case .verifying:
+            badge(String(localized: "download.verifying"), color: .mint)
+        case .completed:
+            badge(String(localized: "download.completed"), color: .green)
+        case .failed:
+            badge(String(localized: "detail.section.failed"), color: .red)
+        }
+    }
+
+    private func badge(_ title: String, color: Color) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12))
+            .foregroundStyle(color)
+            .clipShape(Capsule())
+    }
+
+    private var cardBackground: Color {
+        switch state {
+        case .completed:
+            return .green.opacity(0.04)
+        case .failed:
+            return .red.opacity(0.05)
+        case .downloading, .queued, .verifying:
+            return .blue.opacity(0.04)
+        case .idle:
+            return Color(NSColor.windowBackgroundColor)
+        }
+    }
+
+    private var cardBorder: Color {
+        switch state {
+        case .completed:
+            return .green.opacity(0.18)
+        case .failed:
+            return .red.opacity(0.18)
+        case .downloading, .queued, .verifying:
+            return .blue.opacity(0.16)
+        case .idle:
+            return .primary.opacity(0.08)
         }
     }
 }

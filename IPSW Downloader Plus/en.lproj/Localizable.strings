@@ -6,10 +6,18 @@
 "sidebar.deselect_all.help" = "Deselect all";
 "sidebar.select_all.help" = "Select all";
 "sidebar.nav_title" = "Devices";
+"sidebar.sort.label" = "Sort by";
+"sidebar.sort.order" = "Toggle sort order";
+"sidebar.sort.name" = "Name";
+"sidebar.sort.type" = "Device type";
+"sidebar.sort.version" = "Firmware version";
+"sidebar.sort.release_date" = "Firmware date";
+"sidebar.sort.model_release" = "Model release date";
 "sidebar.toolbar.download_folder" = "Download folder";
 "sidebar.toolbar.download_folder.help" = "Open IPSW folder in Finder";
 "sidebar.toolbar.template" = "Selection template";
 "sidebar.toolbar.template.help" = "Apply a device selection template";
+"sidebar.toolbar.settings.help" = "Open settings";
 "sidebar.template.latest_ios" = "Latest iOS/iPadOS (API)";
 "sidebar.template.loading" = "Loading…";
 "sidebar.template.vintage" = "Vintage (Apple 102772)";
@@ -19,6 +27,10 @@
 "detail.empty" = "Select one or more devices from the list";
 "detail.header.selected" = "%lld device(s) selected";
 "detail.download_all" = "Download all";
+"detail.section.active" = "Active";
+"detail.section.ready" = "Ready";
+"detail.section.completed" = "Completed";
+"detail.section.failed" = "Issues";
 
 /* ContentView — Download card */
 "download.cancel" = "Cancel download";
@@ -26,22 +38,36 @@
 "download.signed" = "Signed";
 "download.verifying" = "Verifying SHA1 checksum…";
 "download.in_progress" = "Downloading…";
+"download.queued" = "Queued";
 "download.completed" = "Download completed";
 "download.show_in_finder" = "Show in Finder";
 "download.action.download" = "Download";
 "download.action.cancel" = "Cancel";
 "download.action.verifying" = "Verifying…";
 "download.action.redownload" = "Re-download";
+"download.local_file_missing" = "The local firmware was moved or deleted.";
 "download.template.error" = "Unable to determine the latest iOS version: %@";
+"footer.donate" = "a donation to support my work";
+"footer.made_with" = "Made with";
+"footer.by_author" = "by iCosiSenpai";
 
 /* WelcomeView */
 "welcome.title" = "Welcome to IPSW Downloader Plus!";
 "welcome.credits.by" = "by Pico Mitchell (Free Geek)";
 "welcome.description1" = "IPSW Downloader Plus batch-downloads the latest IPSW firmware from Apple and places them in the correct iTunes Software Updates or Apple Configurator Firmware folders, so they are automatically detected by Finder and/or Apple Configurator.";
 "welcome.description2" = "You can configure which firmware to download by device type: iPhone, iPad, iPod touch, Apple TV, HomePod mini, Apple Vision, T2 Mac (iBridge) and Apple Silicon Mac. You can also schedule an automatic launch to keep all your IPSW firmware up to date.";
-"welcome.fda.title" = "Full Disk Access required";
-"welcome.fda.body" = "To manage the Apple Configurator Firmware folder, you must enable Full Disk Access in System Settings → Privacy & Security → Full Disk Access.";
+"welcome.fda.title" = "Full Disk Access";
+"welcome.fda.body" = "To manage the Apple Configurator Firmware folder, enable Full Disk Access in System Settings → Privacy & Security → Full Disk Access.";
 "welcome.fda.button" = "Open Privacy & Security…";
+"welcome.fda.granted" = "Granted";
+"welcome.fda.granted.body" = "Full Disk Access is active. IPSW Downloader Plus can write to all required folders.";
+"welcome.fda.recheck" = "Recheck permission";
+"welcome.fda.step1" = "Open System Settings → Privacy & Security → Full Disk Access";
+"welcome.fda.step2" = "Click the + button and add IPSW Downloader Plus";
+"welcome.fda.step3" = "Enable the toggle next to the app, then return here and click \"Recheck permission\"";
+"fda.required.title" = "Full Disk Access Required";
+"fda.required.body" = "IPSW Downloader Plus writes firmware directly into your real user Library folders, like ~/Library/iTunes and Apple Configurator's firmware cache. Grant Full Disk Access before using the app.";
+"fda.required.quit" = "Quit";
 "welcome.folders.title" = "Managed folders";
 "welcome.folders.itunes.title" = "iPhone · iPad · iPod touch";
 "welcome.folders.itunes.desc" = "Saved in iTunes Software Updates — detected by both Finder and Apple Configurator.";
@@ -66,12 +92,23 @@
 "welcome.security.bullet1" = "All firmware is downloaded only from official Apple CDNs (appldnld.apple.com, updates.cdn-apple.com).";
 "welcome.security.bullet2" = "After each download, the SHA1 checksum provided by the ipsw.me API is verified.";
 "welcome.security.bullet3" = "Files with incorrect size or checksum are automatically discarded and re-downloaded.";
+"welcome.security.fda_required.title" = "Full Disk Access is mandatory for default folders";
+"welcome.security.fda_required.body" = "If you want IPSW Downloader Plus to save directly into the default iTunes and Apple Configurator folders, Full Disk Access is required. Without it, the app can't write there.";
+"welcome.security.fda_required.custom" = "A custom destination is active at %@. In this case the app can save there even without Full Disk Access, but it will no longer use Apple's default folders.";
+"welcome.custom_folder.warning_title" = "Custom destination";
+"welcome.custom_folder.warning_body" = "You can change the default destination folder in Settings. If you do, downloads will stop going to the default iTunes and Apple Configurator folders.";
+"welcome.custom_folder.warning_settings" = "You can override the default folders from Settings if you prefer saving all firmware elsewhere.";
+"welcome.custom_folder.warning_active" = "A custom destination is already active: %@. Downloads will go there instead of the default Apple folders.";
 "welcome.cta.show_on_startup" = "Show this screen on every launch";
 "welcome.cta.settings" = "Configure settings";
+"welcome.cta.back" = "Back";
+"welcome.cta.next" = "Next";
 "welcome.cta.close" = "Close";
 
 /* SettingsView */
 "settings.tab.general" = "General";
+"settings.window.title" = "Settings";
+"settings.menu.open" = "Settings…";
 "settings.tab.download" = "Download";
 "settings.tab.schedule" = "Schedule";
 "settings.tab.devices" = "Devices";
@@ -82,6 +119,13 @@
 "settings.general.folders.title" = "Destination folders";
 "settings.general.folders.itunes" = "iTunes folder…";
 "settings.general.folders.configurator" = "Configurator folder…";
+"settings.general.folders.custom_title" = "Custom download folder";
+"settings.general.folders.choose" = "Choose folder…";
+"settings.general.folders.choose_message" = "Pick a folder where IPSW Downloader Plus should store firmware instead of Apple's default folders.";
+"settings.general.folders.reset" = "Use default folders";
+"settings.general.folders.open_custom" = "Open custom folder";
+"settings.general.folders.custom_footer" = "When a custom folder is active, the app stores firmware there and no longer uses the default iTunes or Apple Configurator folders.";
+"settings.general.folders.default_path" = "Using Apple's default folders";
 "settings.general.fda.title" = "Full Disk Access required";
 "settings.general.fda.body" = "To access the Apple Configurator Firmware folder, enable Full Disk Access in System Settings → Privacy & Security → Full Disk Access.";
 "settings.general.fda.button" = "Open Privacy & Security…";
@@ -100,6 +144,9 @@
 "settings.schedule.autolaunch.title" = "Automatic launch";
 "settings.schedule.autolaunch.toggle" = "Enable automatic scheduling";
 "settings.schedule.autolaunch.footer" = "Installs a LaunchAgent in ~/Library/LaunchAgents that launches the app at the chosen time to download updated firmware.";
+"settings.schedule.workflow.title" = "How It Works";
+"settings.schedule.workflow.body" = "Automatic launch and Mac wake are separate. Turning on scheduling saves the app schedule immediately. Mac wake requires an extra admin-authorized step.";
+"settings.schedule.workflow.note" = "If you change time or days after configuring Mac wake, update the wake schedule again.";
 "settings.schedule.time.title" = "Time";
 "settings.schedule.time.hour" = "Hour: %@";
 "settings.schedule.time.minute" = "Min: %@";
@@ -116,7 +163,24 @@
 "schedule.every_day" = "Every day at %@";
 "schedule.days" = "%@ at %@";
 
+/* WakeScheduler */
+"wake.error.cancelled" = "Authorization cancelled by the user.";
+"wake.error.unknown" = "Unknown error during wake schedule.";
+
+/* SettingsView — Wake Schedule */
+"settings.schedule.wake.title" = "Mac Wake";
+"settings.schedule.wake.active" = "Wake active — Mac will wake up 2 min before launch";
+"settings.schedule.wake.inactive" = "Wake not configured — requires admin password";
+"settings.schedule.wake.configure" = "Configure Mac Wake";
+"settings.schedule.wake.update" = "Update Mac Wake";
+"settings.schedule.wake.disable" = "Disable Mac Wake";
+"settings.schedule.wake.needs_update" = "The time or days changed. Update Mac Wake to keep the wake schedule aligned.";
+"settings.schedule.wake.enable_first" = "Enable automatic scheduling first.";
+"settings.schedule.wake.disable_separately" = "Automatic scheduling was turned off. Mac Wake may still be active and can be disabled separately below.";
+"settings.schedule.wake.footer" = "Uses 'pmset repeat wakeorpoweron' to wake or power on the Mac before the scheduled launch. Requires admin password once.";
+
 /* IPSWViewModel */
 "error.no_signed_firmware" = "No signed firmware available";
+"error.full_disk_access_required" = "Full Disk Access is required to write IPSW files into your user Library folders.";
 "template.error.latest_ios" = "Unable to determine the latest iOS version: %@";
 "welcome.title.developer" = "Developed by iCosiSenpai";

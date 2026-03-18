@@ -34,10 +34,22 @@ enum DeviceCategory {
 
     nonisolated func destinationDirectory() throws -> URL {
         let fm = FileManager.default
-        let libraryURL = try fm.url(for: .libraryDirectory,
-                                    in: .userDomainMask,
-                                    appropriateFor: nil,
-                                    create: false)
+
+        if let customRoot = AppSettings.storedCustomDownloadDirectoryURL() {
+            let dir = customRoot.appendingPathComponent(customSubdirectoryName, isDirectory: true)
+            if !fm.fileExists(atPath: dir.path) {
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            }
+            return dir
+        }
+
+        guard FullDiskAccessChecker.check() else {
+            throw IPSWError.fullDiskAccessRequired
+        }
+
+        // Usa homeDirectoryForCurrentUser per ottenere sempre ~/Library reale,
+        // evitando che la sandbox reindirizzi a ~/Library/Containers/…/Data/Library.
+        let libraryURL = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library")
         let dir: URL
         switch self {
         case .iTunes(let productType):
@@ -56,6 +68,26 @@ enum DeviceCategory {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         }
         return dir
+    }
+
+    nonisolated private var customSubdirectoryName: String {
+        switch self {
+        case .iTunes(let productType):
+            return "\(productType) Software Updates"
+        case .configurator:
+            return "Configurator Firmware"
+        }
+    }
+
+    static func monitoredDirectories() -> [URL] {
+        let categories: [DeviceCategory] = [
+            .iTunes(productType: "iPhone"),
+            .iTunes(productType: "iPad"),
+            .iTunes(productType: "iPod"),
+            .configurator
+        ]
+
+        return categories.compactMap { try? $0.destinationDirectory() }
     }
 }
 
@@ -116,7 +148,6 @@ final class IPSWAPIClient {
         let pattern = try! NSRegularExpression(pattern: #"(?:iOS|iPadOS)\s+(\d+(?:\.\d+)*)"#)
 
         var bestVersion: String? = nil
-        var bestMajor = 0
 
         for group in groups {
             for release in group.releases {
@@ -132,11 +163,11 @@ final class IPSWAPIClient {
                       let vRange = Range(match.range(at: 1), in: n) else { continue }
 
                 let version = String(n[vRange])
-                let major = Int(version.split(separator: ".").first ?? "0") ?? 0
-
-                // Tieni la versione con la major più alta (es. 26 > 18)
-                if major > bestMajor {
-                    bestMajor = major
+                if let currentBest = bestVersion {
+                    if version.compare(currentBest, options: .numeric) == .orderedDescending {
+                        bestVersion = version
+                    }
+                } else {
                     bestVersion = version
                 }
             }
@@ -178,6 +209,7 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
 
     private var downloadTask: URLSessionDownloadTask?
     private var targetFirmware: IPSWFirmware?
+    private var shouldVerifyChecksum = true
 
     private lazy var downloadSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -186,7 +218,7 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
     }()
 
     /// Avvia il download verificando l'URL e saltando se il file valido esiste già.
-    func startDownload(firmware: IPSWFirmware) throws {
+    func startDownload(firmware: IPSWFirmware, verifyChecksum: Bool = true) throws {
         guard let url = firmware.downloadURL else {
             throw IPSWError.invalidURL
         }
@@ -217,6 +249,7 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         }
 
         targetFirmware = firmware
+        shouldVerifyChecksum = verifyChecksum
         downloadTask = downloadSession.downloadTask(with: url)
         downloadTask?.resume()
     }
@@ -256,14 +289,14 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
             let destinationFile = destinationDir.appendingPathComponent(fileName)
 
             // Notifica il ViewModel che stiamo verificando il checksum
-            if firmware.sha1 != nil {
+            if shouldVerifyChecksum, firmware.sha1 != nil {
                 DispatchQueue.main.async { [weak self] in
                     self?.onVerifying?()
                 }
             }
 
             // Verifica SHA1 se disponibile
-            if let expectedSHA1 = firmware.sha1 {
+            if shouldVerifyChecksum, let expectedSHA1 = firmware.sha1 {
                 let actualSHA1 = try sha1(of: location)
                 guard actualSHA1.lowercased() == expectedSHA1.lowercased() else {
                     throw IPSWError.checksumMismatch(expected: expectedSHA1, actual: actualSHA1)
@@ -356,6 +389,7 @@ enum IPSWError: LocalizedError {
     case noSignedFirmware
     case downloadDirectoryUnavailable
     case checksumMismatch(expected: String, actual: String)
+    case fullDiskAccessRequired
 
     var errorDescription: String? {
         switch self {
@@ -373,6 +407,8 @@ enum IPSWError: LocalizedError {
             return "Impossibile accedere alla cartella di download."
         case .checksumMismatch(let expected, let actual):
             return "Checksum SHA1 non corrisponde.\nAtteso: \(expected)\nRicevuto: \(actual)"
+        case .fullDiskAccessRequired:
+            return String(localized: "error.full_disk_access_required")
         }
     }
 }

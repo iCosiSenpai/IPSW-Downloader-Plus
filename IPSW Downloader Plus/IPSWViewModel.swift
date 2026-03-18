@@ -6,6 +6,8 @@
 import Foundation
 import Combine
 import SwiftUI
+import AppKit
+import UserNotifications
 
 @MainActor
 final class IPSWViewModel: ObservableObject {
@@ -18,12 +20,44 @@ final class IPSWViewModel: ObservableObject {
     @Published var isLoadingDevices = false
     @Published var deviceLoadError: String? = nil
     @Published var searchText = ""
+    @Published var sortOption: SidebarSortOption = .name {
+        didSet {
+            guard sortOption != oldValue else { return }
+            sortAscending = sortOption.defaultAscending
+        }
+    }
+    @Published var sortAscending = SidebarSortOption.name.defaultAscending
+    @Published private(set) var deviceSortMetadata: [String: DeviceSortMetadata] = [:]
 
     // Riferimento alle impostazioni globali
     private let settings = AppSettings.shared
 
     // Mappa identifier -> IPSWDownloader attivo
     private var activeDownloaders: [String: IPSWDownloader] = [:]
+    // Mappa identifier -> Task di download (annullabile per interrompere anche il fetch API iniziale)
+    private var downloadTaskHandles: [String: Task<Void, Never>] = [:]
+    private var pendingDownloadQueue: [String] = []
+    private var metadataLoadTask: Task<Void, Never>?
+    private var cancellables: Set<AnyCancellable> = []
+    private let directoryMonitor = LocalFirmwareDirectoryMonitor()
+
+    init() {
+        settings.$customDownloadDirectoryPath
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.restartDirectoryMonitoring()
+                self?.refreshLocalFirmwareState()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                self?.refreshLocalFirmwareState()
+            }
+            .store(in: &cancellables)
+
+        restartDirectoryMonitoring()
+    }
 
     // MARK: - Selected Devices (ordered for DetailView)
 
@@ -37,7 +71,7 @@ final class IPSWViewModel: ObservableObject {
     // MARK: - Filtered Devices
 
     /// Applica ricerca testuale + filtro per product type + esclude device non gestiti/irrilevanti
-    var filteredDevices: [IPSWDevice] {
+    private var visibleDevices: [IPSWDevice] {
         devices.filter { device in
             let id = device.identifier
             let lower = id.lowercased()
@@ -61,6 +95,14 @@ final class IPSWViewModel: ObservableObject {
         }
     }
 
+    var filteredDevices: [IPSWDevice] {
+        visibleDevices.sorted(by: compareDevices(_:_:))
+    }
+
+    var activeSortSummary: String {
+        sortOption.localizedTitle
+    }
+
     // MARK: - Load Devices
 
     func loadDevices() async {
@@ -68,10 +110,17 @@ final class IPSWViewModel: ObservableObject {
         deviceLoadError = nil
         do {
             devices = try await IPSWAPIClient.shared.fetchDevices()
+            deviceSortMetadata.removeAll()
+            metadataLoadTask?.cancel()
+            metadataLoadTask = Task { [weak self] in
+                await self?.loadSortMetadata(for: self?.devices ?? [])
+            }
         } catch {
             deviceLoadError = error.localizedDescription
         }
         isLoadingDevices = false
+        restartDirectoryMonitoring()
+        refreshLocalFirmwareState()
     }
 
     // MARK: - Selection
@@ -204,19 +253,76 @@ final class IPSWViewModel: ObservableObject {
     func downloadSelectedDevices() {
         for id in selectedDeviceIDs {
             guard let device = devices.first(where: { $0.identifier == id }) else { continue }
-            Task { await startDownload(for: device) }
+            scheduleDownload(for: device)
         }
     }
 
     func startDownload(for device: IPSWDevice) async {
+        scheduleDownload(for: device)
+    }
+
+    private func scheduleDownload(for device: IPSWDevice) {
+        guard settings.isUsingCustomDownloadDirectory || FullDiskAccessChecker.check() else {
+            var task = downloadTasks[device.identifier] ?? DeviceDownloadTask(
+                id: device.identifier,
+                device: device,
+                firmware: IPSWFirmware.placeholder(for: device.identifier)
+            )
+            task.state = .failed(error: IPSWError.fullDiskAccessRequired.localizedDescription)
+            downloadTasks[device.identifier] = task
+            return
+        }
+
+        if let queuedIndex = pendingDownloadQueue.firstIndex(of: device.identifier) {
+            pendingDownloadQueue.remove(at: queuedIndex)
+        }
+
+        // Cancella eventuale task precedente (inclusa la fase di fetch API)
+        downloadTaskHandles[device.identifier]?.cancel()
+        activeDownloaders[device.identifier]?.cancel()
+
+        if activeDownloaders.count >= settings.maxConcurrentDownloads {
+            var task = downloadTasks[device.identifier] ?? DeviceDownloadTask(
+                id: device.identifier,
+                device: device,
+                firmware: IPSWFirmware.placeholder(for: device.identifier)
+            )
+            task.device = device
+            task.state = .queued
+            downloadTasks[device.identifier] = task
+            pendingDownloadQueue.append(device.identifier)
+            downloadTaskHandles.removeValue(forKey: device.identifier)
+            activeDownloaders.removeValue(forKey: device.identifier)
+            return
+        }
+
+        let handle = Task { [weak self] in
+            guard let self else { return }
+            await self.performDownload(for: device)
+        }
+        downloadTaskHandles[device.identifier] = handle
+    }
+
+    private func performDownload(for device: IPSWDevice) async {
         do {
             let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
-            guard let firmware = detailed.firmwares?
-                .filter({ $0.signed })
-                .max(by: { $0.buildid < $1.buildid })
+
+            // Controlla cancellazione dopo il fetch API (che può richiedere secondi)
+            guard !Task.isCancelled else { return }
+
+            guard let firmware = detailed.firmwares?.newestSignedFirmware()
             else {
                 markFailed(id: device.identifier,
                            error: String(localized: "error.no_signed_firmware"))
+                return
+            }
+
+            // Se il firmware è già presente su disco con la dimensione corretta, segnala completato
+            if let existingURL = localFileURL(for: firmware), fileIsComplete(firmware: firmware, at: existingURL) {
+                var task = DeviceDownloadTask(id: device.identifier, device: device, firmware: firmware)
+                task.state = .completed(url: existingURL)
+                downloadTasks[device.identifier] = task
+                downloadTaskHandles.removeValue(forKey: device.identifier)
                 return
             }
 
@@ -246,32 +352,54 @@ final class IPSWViewModel: ObservableObject {
                     switch result {
                     case .success(let url):
                         self?.downloadTasks[identifier]?.state = .completed(url: url)
+                        self?.notifyDownloadCompletion(for: device, firmware: firmware)
                     case .failure(let error):
                         self?.downloadTasks[identifier]?.state = .failed(error: error.localizedDescription)
                     }
                     self?.activeDownloaders.removeValue(forKey: identifier)
+                    self?.downloadTaskHandles.removeValue(forKey: identifier)
+                    self?.startNextQueuedDownloadIfPossible()
                 }
             }
 
-            try downloader.startDownload(firmware: firmware)
+            try downloader.startDownload(
+                firmware: firmware,
+                verifyChecksum: settings.verifyChecksumAfterDownload
+            )
 
         } catch {
-            markFailed(id: device.identifier, error: error.localizedDescription)
+            if !Task.isCancelled {
+                markFailed(id: device.identifier, error: error.localizedDescription)
+                startNextQueuedDownloadIfPossible()
+            }
         }
     }
 
     func cancelDownload(for device: IPSWDevice) {
+        if let queuedIndex = pendingDownloadQueue.firstIndex(of: device.identifier) {
+            pendingDownloadQueue.remove(at: queuedIndex)
+        }
+        // Annulla il Task intero (include fetch API + download URLSession)
+        downloadTaskHandles[device.identifier]?.cancel()
+        downloadTaskHandles.removeValue(forKey: device.identifier)
         activeDownloaders[device.identifier]?.cancel()
         activeDownloaders.removeValue(forKey: device.identifier)
         downloadTasks[device.identifier]?.state = .idle
+        startNextQueuedDownloadIfPossible()
     }
 
     /// Rimuove il dispositivo dalla lista selezionati e cancella l'eventuale download attivo.
     func removeDevice(_ device: IPSWDevice) {
+        if let queuedIndex = pendingDownloadQueue.firstIndex(of: device.identifier) {
+            pendingDownloadQueue.remove(at: queuedIndex)
+        }
+        downloadTaskHandles[device.identifier]?.cancel()
+        downloadTaskHandles.removeValue(forKey: device.identifier)
         activeDownloaders[device.identifier]?.cancel()
         activeDownloaders.removeValue(forKey: device.identifier)
         downloadTasks.removeValue(forKey: device.identifier)
         selectedDeviceIDs.remove(device.identifier)
+        startNextQueuedDownloadIfPossible()
     }
 
     /// Rimuove i device per IndexSet (usato da List.onDelete).
@@ -283,14 +411,131 @@ final class IPSWViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Local File Helpers
+
+    /// Restituisce l'URL locale atteso per un firmware, senza verificare se esiste.
+    private func localFileURL(for firmware: IPSWFirmware) -> URL? {
+        guard let downloadURL = firmware.downloadURL else { return nil }
+        let category = DeviceCategory.from(identifier: firmware.identifier)
+        guard let dir = try? category.destinationDirectory() else { return nil }
+        let fileName = downloadURL.lastPathComponent.isEmpty
+            ? "\(firmware.identifier)_\(firmware.buildid).ipsw"
+            : downloadURL.lastPathComponent
+        return dir.appendingPathComponent(fileName)
+    }
+
+    /// Verifica se il file esiste su disco con la dimensione corretta (o senza filesize noto).
+    private func fileIsComplete(firmware: IPSWFirmware, at url: URL) -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        if let expected = firmware.filesize,
+           let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let actual = attrs[.size] as? Int64 {
+            return actual == expected
+        }
+        // File presente ma dimensione sconosciuta — consideriamo valido
+        return true
+    }
+
     // MARK: - Auto-launch (avviato da LaunchAgent con --auto-launch)
 
     /// Chiamato all'avvio dell'app quando viene rilevato il flag --auto-launch.
-    /// Scarica tutti i firmware abilitati per i dispositivi selezionati.
+    /// Controlla i firmware più recenti per tutti i dispositivi abilitati,
+    /// scarica solo quelli non ancora presenti in locale, poi chiude l'app.
     func runAutoLaunchUpdate() async {
         await loadDevices()
-        for device in filteredDevices where selectedDeviceIDs.contains(device.identifier) {
-            await startDownload(for: device)
+
+        let devicesToCheck = filteredDevices
+
+        for device in devicesToCheck {
+            do {
+                let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                guard let firmware = detailed.firmwares?.newestSignedFirmware()
+                else {
+                    print("[Auto-Launch] Nessun firmware firmato per: \(device.identifier)")
+                    continue
+                }
+
+                if isAlreadyDownloaded(firmware: firmware) {
+                    print("[Auto-Launch] Già aggiornato: \(device.identifier) (\(firmware.version))")
+                } else {
+                    print("[Auto-Launch] Nuova versione, download: \(device.identifier) (\(firmware.version))")
+                    await startDownloadAndWait(for: device)
+                }
+            } catch {
+                print("[Auto-Launch] Errore controllo \(device.identifier): \(error.localizedDescription)")
+            }
+        }
+
+        // Grace period per completare callback e notifiche, poi chiude l'app
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        NSApplication.shared.terminate(nil)
+    }
+
+    /// Verifica se il firmware è già scaricato localmente con la dimensione corretta.
+    private func isAlreadyDownloaded(firmware: IPSWFirmware) -> Bool {
+        guard let url = localFileURL(for: firmware) else { return false }
+        return fileIsComplete(firmware: firmware, at: url)
+    }
+
+    /// Avvia il download di un dispositivo e attende il suo completamento (successo o fallimento).
+    private func startDownloadAndWait(for device: IPSWDevice) async {
+        await withCheckedContinuation { continuation in
+            Task {
+                do {
+                    let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                    guard let firmware = detailed.firmwares?.newestSignedFirmware()
+                    else {
+                        markFailed(id: device.identifier,
+                                   error: String(localized: "error.no_signed_firmware"))
+                        continuation.resume()
+                        return
+                    }
+
+                    var task = DeviceDownloadTask(id: device.identifier, device: device, firmware: firmware)
+                    task.state = .downloading(progress: 0)
+                    downloadTasks[device.identifier] = task
+
+                    let downloader = IPSWDownloader()
+                    activeDownloaders[device.identifier] = downloader
+
+                    let identifier = device.identifier
+
+                    downloader.onProgress = { [weak self] progress in
+                        Task { @MainActor [weak self] in
+                            self?.downloadTasks[identifier]?.state = .downloading(progress: progress)
+                        }
+                    }
+
+                    downloader.onVerifying = { [weak self] in
+                        Task { @MainActor [weak self] in
+                            self?.downloadTasks[identifier]?.state = .verifying
+                        }
+                    }
+
+                    downloader.onCompletion = { [weak self] result in
+                        Task { @MainActor [weak self] in
+                            switch result {
+                            case .success(let url):
+                                self?.downloadTasks[identifier]?.state = .completed(url: url)
+                                self?.notifyDownloadCompletion(for: device, firmware: firmware)
+                            case .failure(let error):
+                                self?.downloadTasks[identifier]?.state = .failed(error: error.localizedDescription)
+                            }
+                            self?.activeDownloaders.removeValue(forKey: identifier)
+                            continuation.resume()
+                        }
+                    }
+
+                    try downloader.startDownload(
+                        firmware: firmware,
+                        verifyChecksum: settings.verifyChecksumAfterDownload
+                    )
+
+                } catch {
+                    markFailed(id: device.identifier, error: error.localizedDescription)
+                    continuation.resume()
+                }
+            }
         }
     }
 
@@ -298,6 +543,40 @@ final class IPSWViewModel: ObservableObject {
 
     private func markFailed(id: String, error: String) {
         downloadTasks[id]?.state = .failed(error: error)
+    }
+
+    private func startNextQueuedDownloadIfPossible() {
+        guard activeDownloaders.count < settings.maxConcurrentDownloads else { return }
+
+        while activeDownloaders.count < settings.maxConcurrentDownloads, !pendingDownloadQueue.isEmpty {
+            let nextIdentifier = pendingDownloadQueue.removeFirst()
+            guard let device = devices.first(where: { $0.identifier == nextIdentifier }) else {
+                downloadTasks.removeValue(forKey: nextIdentifier)
+                continue
+            }
+
+            let handle = Task { [weak self] in
+                guard let self else { return }
+                await self.performDownload(for: device)
+            }
+            downloadTaskHandles[nextIdentifier] = handle
+        }
+    }
+
+    private func notifyDownloadCompletion(for device: IPSWDevice, firmware: IPSWFirmware) {
+        guard settings.notifyOnDownloadComplete else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = device.name
+        content.body = "\(device.osLabel) \(firmware.version) (\(firmware.buildid))"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "download-complete-\(device.identifier)",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
     }
 
     func downloadState(for device: IPSWDevice) -> DownloadState {
@@ -309,7 +588,240 @@ final class IPSWViewModel: ObservableObject {
     }
 
     func openDownloadFolder() {
+        if let customRoot = settings.customDownloadDirectoryURL {
+            NSWorkspace.shared.open(customRoot)
+            return
+        }
+        guard FullDiskAccessChecker.check() else {
+            FullDiskAccessChecker.openPrivacySettings()
+            return
+        }
         guard let dir = try? IPSWDownloader.ipswDownloadDirectory() else { return }
         NSWorkspace.shared.open(dir)
+    }
+
+    func refreshLocalFirmwareState() {
+        for (identifier, task) in downloadTasks {
+            let url: URL?
+            switch task.state {
+            case .completed(let completedURL):
+                url = completedURL
+            default:
+                url = localFileURL(for: task.firmware)
+            }
+
+            guard let fileURL = url else { continue }
+
+            if fileIsComplete(firmware: task.firmware, at: fileURL) {
+                if case .completed = task.state {
+                    continue
+                }
+                downloadTasks[identifier]?.state = .completed(url: fileURL)
+            } else if case .completed = task.state {
+                downloadTasks[identifier]?.state = .failed(error: String(localized: "download.local_file_missing"))
+            }
+        }
+    }
+
+    private func restartDirectoryMonitoring() {
+        let urls = DeviceCategory.monitoredDirectories()
+        directoryMonitor.startMonitoring(urls: urls) { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshLocalFirmwareState()
+            }
+        }
+    }
+
+    private func loadSortMetadata(for devices: [IPSWDevice]) async {
+        let chunkSize = 8
+        var index = 0
+
+        while index < devices.count {
+            if Task.isCancelled { return }
+            let chunk = Array(devices[index..<min(index + chunkSize, devices.count)])
+
+            await withTaskGroup(of: (String, DeviceSortMetadata?).self) { group in
+                for device in chunk {
+                    group.addTask {
+                        do {
+                            let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                            let metadata = Self.extractMetadata(from: detailed)
+                            return (device.identifier, metadata)
+                        } catch {
+                            return (device.identifier, nil)
+                        }
+                    }
+                }
+
+                for await (identifier, metadata) in group {
+                    guard let metadata else { continue }
+                    await MainActor.run {
+                        self.deviceSortMetadata[identifier] = metadata
+                    }
+                }
+            }
+
+            index += chunkSize
+        }
+    }
+
+    nonisolated private static func extractMetadata(from device: IPSWDevice) -> DeviceSortMetadata {
+        let firmwares = device.firmwares ?? []
+        let latest = firmwares.max {
+            ($0.releaseDateValue ?? .distantPast) < ($1.releaseDateValue ?? .distantPast)
+        }
+        let earliest = firmwares.min {
+            ($0.releaseDateValue ?? .distantFuture) < ($1.releaseDateValue ?? .distantFuture)
+        }
+
+        return DeviceSortMetadata(
+            latestFirmwareVersion: latest?.version,
+            latestFirmwareReleaseDate: latest?.releaseDateValue,
+            modelReleaseDate: earliest?.releaseDateValue
+        )
+    }
+
+    private func compareDevices(_ lhs: IPSWDevice, _ rhs: IPSWDevice) -> Bool {
+        switch sortOption {
+        case .name:
+            return compareStrings(
+                lhs.name,
+                rhs.name,
+                fallbackLeft: lhs.identifier,
+                fallbackRight: rhs.identifier,
+                ascending: sortAscending
+            )
+        case .deviceType:
+            return compareStrings(
+                lhs.deviceTypeLabel,
+                rhs.deviceTypeLabel,
+                fallbackLeft: lhs.name,
+                fallbackRight: rhs.name,
+                ascending: sortAscending
+            )
+        case .firmwareVersion:
+            return compareVersions(
+                deviceSortMetadata[lhs.identifier]?.latestFirmwareVersion,
+                deviceSortMetadata[rhs.identifier]?.latestFirmwareVersion,
+                fallbackLeft: lhs.name,
+                fallbackRight: rhs.name,
+                ascending: sortAscending
+            )
+        case .firmwareReleaseDate:
+            return compareDates(
+                deviceSortMetadata[lhs.identifier]?.latestFirmwareReleaseDate,
+                deviceSortMetadata[rhs.identifier]?.latestFirmwareReleaseDate,
+                fallbackLeft: lhs.name,
+                fallbackRight: rhs.name,
+                ascending: sortAscending
+            )
+        case .modelReleaseDate:
+            return compareDates(
+                deviceSortMetadata[lhs.identifier]?.modelReleaseDate,
+                deviceSortMetadata[rhs.identifier]?.modelReleaseDate,
+                fallbackLeft: lhs.name,
+                fallbackRight: rhs.name,
+                ascending: sortAscending
+            )
+        }
+    }
+
+    private func compareStrings(_ lhs: String?, _ rhs: String?, fallbackLeft: String, fallbackRight: String, ascending: Bool) -> Bool {
+        switch (lhs, rhs) {
+        case let (left?, right?):
+            let result = left.localizedCaseInsensitiveCompare(right)
+            if result == .orderedSame {
+                return ascending
+                    ? fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight) == .orderedAscending
+                    : fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight) == .orderedDescending
+            }
+            return ascending ? result == .orderedAscending : result == .orderedDescending
+        case (.some, nil):
+            return true
+        case (nil, .some):
+            return false
+        case (nil, nil):
+            let result = fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight)
+            return ascending ? result == .orderedAscending : result == .orderedDescending
+        }
+    }
+
+    private func compareVersions(_ lhs: String?, _ rhs: String?, fallbackLeft: String, fallbackRight: String, ascending: Bool) -> Bool {
+        switch (lhs, rhs) {
+        case let (left?, right?):
+            let result = left.compare(right, options: .numeric)
+            if result == .orderedSame {
+                let fallbackResult = fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight)
+                return ascending ? fallbackResult == .orderedAscending : fallbackResult == .orderedDescending
+            }
+            return ascending ? result == .orderedAscending : result == .orderedDescending
+        case (.some, nil):
+            return true
+        case (nil, .some):
+            return false
+        case (nil, nil):
+            let result = fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight)
+            return ascending ? result == .orderedAscending : result == .orderedDescending
+        }
+    }
+
+    private func compareDates(_ lhs: Date?, _ rhs: Date?, fallbackLeft: String, fallbackRight: String, ascending: Bool) -> Bool {
+        switch (lhs, rhs) {
+        case let (left?, right?):
+            if left == right {
+                let result = fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight)
+                return ascending ? result == .orderedAscending : result == .orderedDescending
+            }
+            if ascending {
+                return left < right
+            }
+            return left > right
+        case (.some, nil):
+            return true
+        case (nil, .some):
+            return false
+        case (nil, nil):
+            let result = fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight)
+            return ascending ? result == .orderedAscending : result == .orderedDescending
+        }
+    }
+}
+
+private final class LocalFirmwareDirectoryMonitor {
+    private var fileDescriptors: [CInt] = []
+    private var sources: [DispatchSourceFileSystemObject] = []
+
+    deinit {
+        stopMonitoring()
+    }
+
+    func startMonitoring(urls: [URL], onChange: @escaping @Sendable () -> Void) {
+        stopMonitoring()
+
+        for url in urls {
+            let fileDescriptor = open(url.path, O_EVTONLY)
+            guard fileDescriptor >= 0 else { continue }
+
+            let source = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: fileDescriptor,
+                eventMask: [.write, .delete, .rename],
+                queue: DispatchQueue.global(qos: .utility)
+            )
+
+            source.setEventHandler(handler: onChange)
+            source.setCancelHandler {
+                close(fileDescriptor)
+            }
+
+            fileDescriptors.append(fileDescriptor)
+            sources.append(source)
+            source.resume()
+        }
+    }
+
+    func stopMonitoring() {
+        sources.forEach { $0.cancel() }
+        sources.removeAll()
+        fileDescriptors.removeAll()
     }
 }
