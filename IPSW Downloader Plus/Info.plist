@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>LSApplicationCategoryType</key>
+		<string>public.app-category.utilities</string>
+
+		<!-- Richiesto per accedere a ~/Library/Group Containers (Apple Configurator Firmware) -->
+		<key>NSFileProviderDomainUsageDescription</key>
+	<string>IPSW Downloader Plus necessita di accedere alle cartelle di sistema per salvare i firmware IPSW nelle cartelle corrette di iTunes e Apple Configurator.</string>
+
+	<!-- Accesso alla cartella Downloads e Library dell'utente -->
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>IPSW Downloader Plus salva i file firmware IPSW nelle cartelle di sistema iTunes Software Updates.</string>
+
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>IPSW Downloader Plus accede alle cartelle firmware per gestire i file IPSW.</string>
+
+	<!-- Per macOS Privacy &amp; Security → Full Disk Access -->
+	<key>NSSystemAdministrationUsageDescription</key>
+	<string>IPSW Downloader Plus richiede l'accesso completo al disco per gestire le cartelle firmware di iTunes e Apple Configurator, che si trovano in posizioni di sistema protette.</string>
+</dict>
+</plist>

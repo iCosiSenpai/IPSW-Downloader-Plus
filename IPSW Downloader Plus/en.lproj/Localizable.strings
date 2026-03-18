@@ -1,0 +1,122 @@
+/* ContentView — Sidebar */
+"search.placeholder" = "Search device…";
+"sidebar.loading" = "Loading devices…";
+"sidebar.retry" = "Retry";
+"sidebar.refresh.help" = "Refresh device list";
+"sidebar.deselect_all.help" = "Deselect all";
+"sidebar.select_all.help" = "Select all";
+"sidebar.nav_title" = "Devices";
+"sidebar.toolbar.download_folder" = "Download folder";
+"sidebar.toolbar.download_folder.help" = "Open IPSW folder in Finder";
+"sidebar.toolbar.template" = "Selection template";
+"sidebar.toolbar.template.help" = "Apply a device selection template";
+"sidebar.template.latest_ios" = "Latest iOS/iPadOS (API)";
+"sidebar.template.loading" = "Loading…";
+"sidebar.template.vintage" = "Vintage (Apple 102772)";
+"sidebar.template.error_title" = "Template error";
+
+/* ContentView — Detail */
+"detail.empty" = "Select one or more devices from the list";
+"detail.header.selected" = "%lld device(s) selected";
+"detail.download_all" = "Download all";
+
+/* ContentView — Download card */
+"download.cancel" = "Cancel download";
+"download.remove" = "Remove from list";
+"download.signed" = "Signed";
+"download.verifying" = "Verifying SHA1 checksum…";
+"download.in_progress" = "Downloading…";
+"download.completed" = "Download completed";
+"download.show_in_finder" = "Show in Finder";
+"download.action.download" = "Download";
+"download.action.cancel" = "Cancel";
+"download.action.verifying" = "Verifying…";
+"download.action.redownload" = "Re-download";
+"download.template.error" = "Unable to determine the latest iOS version: %@";
+
+/* WelcomeView */
+"welcome.title" = "Welcome to IPSW Downloader Plus!";
+"welcome.credits.by" = "by Pico Mitchell (Free Geek)";
+"welcome.description1" = "IPSW Downloader Plus batch-downloads the latest IPSW firmware from Apple and places them in the correct iTunes Software Updates or Apple Configurator Firmware folders, so they are automatically detected by Finder and/or Apple Configurator.";
+"welcome.description2" = "You can configure which firmware to download by device type: iPhone, iPad, iPod touch, Apple TV, HomePod mini, Apple Vision, T2 Mac (iBridge) and Apple Silicon Mac. You can also schedule an automatic launch to keep all your IPSW firmware up to date.";
+"welcome.fda.title" = "Full Disk Access required";
+"welcome.fda.body" = "To manage the Apple Configurator Firmware folder, you must enable Full Disk Access in System Settings → Privacy & Security → Full Disk Access.";
+"welcome.fda.button" = "Open Privacy & Security…";
+"welcome.folders.title" = "Managed folders";
+"welcome.folders.itunes.title" = "iPhone · iPad · iPod touch";
+"welcome.folders.itunes.desc" = "Saved in iTunes Software Updates — detected by both Finder and Apple Configurator.";
+"welcome.folders.configurator.title" = "Apple TV · HomePod mini · Apple Vision · T2 Mac (iBridge) · Apple Silicon Mac";
+"welcome.folders.configurator.desc" = "Saved in the Apple Configurator Firmware folder. Apple Configurator does NOT detect firmware for these devices in the iTunes folder.";
+"welcome.folders.show_in_finder" = "Show in Finder";
+"welcome.reorganize.title" = "Automatic management of existing files";
+"welcome.reorganize.body" = "By accepting, IPSW Downloader Plus will take over management of these two folders. Existing .ipsw files will be reorganized automatically:";
+"welcome.reorganize.bullet1" = "iPhone/iPad/iPod firmware found in the Configurator folder will be moved to the correct iTunes folder.";
+"welcome.reorganize.bullet2" = "Apple TV, HomePod, Mac firmware found in the iTunes folder will be moved to the Configurator folder.";
+"welcome.reorganize.bullet3" = "Firmware still signed by Apple but not updated will be left unchanged.";
+"welcome.reorganize.bullet4" = "Firmware no longer signed by Apple will be deleted or moved to Trash (according to your settings).";
+"welcome.reorganize.bullet5" = "Whenever a newer version is downloaded, the previous one will be removed.";
+"welcome.excluded.title" = "Automatically excluded devices";
+"welcome.excluded.body" = "The following devices are always ignored because they are irrelevant or stuck on outdated versions:";
+"welcome.excluded.bullet1" = "ADP3,2 — Apple Silicon Developer Transition Kit (stuck on macOS 11.2.3, not upgradeable)";
+"welcome.excluded.bullet2" = "VirtualMac — Apple Silicon Virtual Machine (redundant virtual instance)";
+"welcome.schedule.title" = "Automatic scheduling — important notes";
+"welcome.schedule.warning" = "For the scheduled automatic launch feature, Automatic Login must be enabled on the Mac (System Settings → Users & Groups). Without automatic login, the Mac cannot run scheduled tasks when shut down or restarted.";
+"welcome.schedule.body" = "The scheduling uses a macOS LaunchAgent (~/Library/LaunchAgents/com.icosisenpai.ipsw-downloader-plus.plist) that launches the app at the configured time. Only signed and active downloads are executed.";
+"welcome.security.title" = "Security & verification";
+"welcome.security.bullet1" = "All firmware is downloaded only from official Apple CDNs (appldnld.apple.com, updates.cdn-apple.com).";
+"welcome.security.bullet2" = "After each download, the SHA1 checksum provided by the ipsw.me API is verified.";
+"welcome.security.bullet3" = "Files with incorrect size or checksum are automatically discarded and re-downloaded.";
+"welcome.cta.show_on_startup" = "Show this screen on every launch";
+"welcome.cta.settings" = "Configure settings";
+"welcome.cta.close" = "Close";
+
+/* SettingsView */
+"settings.tab.general" = "General";
+"settings.tab.download" = "Download";
+"settings.tab.schedule" = "Schedule";
+"settings.tab.devices" = "Devices";
+"settings.general.startup.title" = "Startup";
+"settings.general.startup.show_welcome" = "Show welcome screen on launch";
+"settings.general.obsolete.title" = "Obsolete firmware";
+"settings.general.obsolete.footer" = "A firmware is obsolete when Apple stops signing it or when a newer version has been downloaded.";
+"settings.general.folders.title" = "Destination folders";
+"settings.general.folders.itunes" = "iTunes folder…";
+"settings.general.folders.configurator" = "Configurator folder…";
+"settings.general.fda.title" = "Full Disk Access required";
+"settings.general.fda.body" = "To access the Apple Configurator Firmware folder, enable Full Disk Access in System Settings → Privacy & Security → Full Disk Access.";
+"settings.general.fda.button" = "Open Privacy & Security…";
+"settings.delete.permanent" = "Delete permanently";
+"settings.delete.trash" = "Move to Trash";
+"settings.download.integrity.title" = "Integrity";
+"settings.download.integrity.toggle" = "Verify SHA1 checksum after download";
+"settings.download.integrity.footer" = "Ensures the .ipsw file is not corrupted. Slightly slows down the final step for large files (5–10 GB).";
+"settings.download.parallel.title" = "Parallel downloads";
+"settings.download.parallel.label" = "Maximum %lld concurrent downloads";
+"settings.download.parallel.footer" = "Increasing the number may saturate available bandwidth. Recommended value: 2–3.";
+"settings.download.notify.title" = "Notifications";
+"settings.download.notify.toggle" = "Notify when each download completes";
+"settings.download.notify.footer" = "Sends a macOS notification when an .ipsw file is successfully downloaded and verified. Requires Notifications permission.";
+"settings.download.folder_size.title" = "Folder size";
+"settings.schedule.autolaunch.title" = "Automatic launch";
+"settings.schedule.autolaunch.toggle" = "Enable automatic scheduling";
+"settings.schedule.autolaunch.footer" = "Installs a LaunchAgent in ~/Library/LaunchAgents that launches the app at the chosen time to download updated firmware.";
+"settings.schedule.time.title" = "Time";
+"settings.schedule.time.hour" = "Hour: %@";
+"settings.schedule.time.minute" = "Min: %@";
+"settings.schedule.days.title" = "Days";
+"settings.schedule.days.footer" = "No day selected = every day.";
+"settings.schedule.login_warning" = "Scheduling requires Automatic Login to be enabled in System Settings → Users & Groups. Without it, the Mac cannot run scheduled tasks when shut down or restarted.";
+"settings.devices.warning" = "Select at least one device category.";
+"settings.devices.types.title" = "Device types";
+"settings.devices.minimum" = "minimum required";
+"settings.devices.footer" = "Deselected types are ignored in manual and automatic downloads. At least one must remain active.";
+
+/* IPSWSettings */
+"schedule.disabled" = "Disabled";
+"schedule.every_day" = "Every day at %@";
+"schedule.days" = "%@ at %@";
+
+/* IPSWViewModel */
+"error.no_signed_firmware" = "No signed firmware available";
+"template.error.latest_ios" = "Unable to determine the latest iOS version: %@";
+"welcome.title.developer" = "Developed by iCosiSenpai";
