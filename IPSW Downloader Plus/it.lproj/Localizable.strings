@@ -13,6 +13,7 @@
 "sidebar.sort.version" = "Versione firmware";
 "sidebar.sort.release_date" = "Data firmware";
 "sidebar.sort.model_release" = "Data uscita modello";
+"sidebar.toggle.help" = "Mostra o nascondi la sidebar";
 "sidebar.toolbar.download_folder" = "Cartella download";
 "sidebar.toolbar.download_folder.help" = "Apri cartella IPSW in Finder";
 "sidebar.toolbar.template" = "Template selezione";
@@ -26,11 +27,15 @@
 /* ContentView — Detail */
 "detail.empty" = "Seleziona uno o più dispositivi dalla lista";
 "detail.header.selected" = "%lld dispositivo/i selezionato/i";
+"detail.header.status" = "%1$lld pronti · %2$lld attivi · %3$lld completati · %4$lld problemi";
 "detail.download_all" = "Scarica tutti";
+"detail.navigation.title" = "Download";
+"detail.open_folder" = "Apri cartella";
 "detail.section.active" = "Attivi";
 "detail.section.ready" = "Pronti";
 "detail.section.completed" = "Completati";
 "detail.section.failed" = "Problemi";
+"detail.section.activity" = "Attività recenti";
 
 /* ContentView — Download card */
 "download.cancel" = "Annulla download";
@@ -45,7 +50,11 @@
 "download.action.cancel" = "Annulla";
 "download.action.verifying" = "Verifica…";
 "download.action.redownload" = "Ri-scarica";
+"download.attempt" = "Tentativo %1$lld/%2$lld";
+"download.eta" = "ETA %@";
 "download.local_file_missing" = "Il firmware locale è stato spostato o cancellato.";
+"activity.download_paused" = "Download in pausa. Puoi riprenderlo più tardi.";
+"activity.download_resuming" = "Ripresa del download dal progresso salvato.";
 "download.template.error" = "Impossibile determinare l'ultima versione iOS: %@";
 "footer.donate" = "una donazione per supportare il mio lavoro";
 "footer.made_with" = "Made with";
@@ -53,14 +62,22 @@
 
 /* WelcomeView */
 "welcome.title" = "Benvenuto in IPSW Downloader Plus!";
-"welcome.credits.by" = "di Pico Mitchell (Free Geek)";
+"welcome.hero.body" = "Mantieni aggiornate le cartelle firmware Apple con un flusso batch più veloce e sicuro.";
+"welcome.card.downloads.title" = "Download batch";
+"welcome.card.downloads.body" = "Scarica gli IPSW firmati più recenti per molti dispositivi con coda, retry e ripresa del download.";
+"welcome.card.setup.title" = "Setup guidato";
+"welcome.card.setup.body" = "Subito dopo questa schermata di benvenuto, l'app apre una configurazione iniziale dedicata a permessi e cartelle.";
+"welcome.flow.note" = "Vai avanti per i prossimi passi";
 "welcome.description1" = "IPSW Downloader Plus scarica in batch i firmware IPSW più recenti da Apple e li posiziona nelle cartelle corrette di iTunes Software Updates o Apple Configurator Firmware, così da essere rilevati automaticamente da Finder e/o Apple Configurator.";
 "welcome.description2" = "Puoi configurare quali firmware scaricare per tipo di dispositivo: iPhone, iPad, iPod touch, Apple TV, HomePod mini, Apple Vision, T2 Mac (iBridge) e Apple Silicon Mac. Puoi anche pianificare un avvio automatico per mantenere sempre aggiornati tutti i tuoi firmware IPSW.";
 "welcome.fda.title" = "Accesso completo al disco";
 "welcome.fda.body" = "Per gestire la cartella Apple Configurator Firmware, abilita Full Disk Access in Impostazioni di Sistema → Privacy e Sicurezza → Accesso completo al disco.";
 "welcome.fda.button" = "Apri Privacy e Sicurezza…";
 "welcome.fda.granted" = "Concesso";
+"welcome.fda.denied" = "Mancante";
+"welcome.fda.unknown" = "Non verificato";
 "welcome.fda.granted.body" = "Full Disk Access è attivo. IPSW Downloader Plus può scrivere in tutte le cartelle necessarie.";
+"welcome.fda.unknown.body" = "macOS non ha esposto abbastanza percorsi protetti per verificare automaticamente il Full Disk Access. Puoi comunque continuare, ma le cartelle Apple di default potrebbero fallire finché il permesso non viene concesso.";
 "welcome.fda.recheck" = "Verifica di nuovo il permesso";
 "welcome.fda.step1" = "Apri Impostazioni di Sistema → Privacy e Sicurezza → Accesso completo al disco";
 "welcome.fda.step2" = "Clicca il pulsante + e aggiungi IPSW Downloader Plus";
@@ -101,6 +118,7 @@
 "welcome.custom_folder.warning_active" = "È già attiva una destinazione personalizzata: %@. I download finiranno lì invece che nelle cartelle Apple di default.";
 "welcome.cta.show_on_startup" = "Mostra questa schermata ad ogni avvio";
 "welcome.cta.settings" = "Configura le impostazioni";
+"welcome.cta.continue" = "Continua";
 "welcome.cta.back" = "Indietro";
 "welcome.cta.next" = "Avanti";
 "welcome.cta.close" = "Chiudi";
@@ -114,6 +132,13 @@
 "settings.tab.devices" = "Dispositivi";
 "settings.general.startup.title" = "Avvio";
 "settings.general.startup.show_welcome" = "Mostra schermata di benvenuto all'avvio";
+"settings.general.startup.open_welcome" = "Mostra benvenuto ora";
+"settings.general.startup.open_setup" = "Riapri setup";
+"settings.general.startup.setup_completed" = "Il setup iniziale risulta già completato. Per questo non compare più automaticamente dopo il benvenuto.";
+"settings.general.startup.setup_pending" = "Il setup iniziale è ancora in sospeso e comparirà dopo il flusso di benvenuto.";
+"settings.footer.version" = "Versione %@ (%@)";
+"settings.footer.github" = "GitHub";
+"settings.footer.support" = "Donazioni";
 "settings.general.obsolete.title" = "Firmware obsoleti";
 "settings.general.obsolete.footer" = "Un firmware è obsoleto quando Apple smette di firmarlo o quando ne viene scaricata una versione più recente.";
 "settings.general.folders.title" = "Cartelle di destinazione";
@@ -144,6 +169,21 @@
 "settings.schedule.autolaunch.title" = "Avvio automatico";
 "settings.schedule.autolaunch.toggle" = "Abilita pianificazione automatica";
 "settings.schedule.autolaunch.footer" = "Installa un LaunchAgent in ~/Library/LaunchAgents che avvia l'app all'orario scelto per scaricare i firmware aggiornati.";
+"settings.schedule.agent.title" = "LaunchAgent";
+"settings.schedule.agent.loaded" = "LaunchAgent installato e caricato.";
+"settings.schedule.agent.installed" = "Plist LaunchAgent presente, ma caricamento non confermato.";
+"settings.schedule.agent.missing" = "LaunchAgent non ancora installato.";
+"settings.schedule.agent.error" = "Errore LaunchAgent: %@";
+"settings.schedule.agent.footer" = "Questo agente macOS è responsabile dell'avvio pianificato dell'app.";
+"settings.schedule.agent.command_failed" = "launchctl non è riuscito ad aggiornare il LaunchAgent.";
+"settings.schedule.report.title" = "Ultima esecuzione pianificata";
+"settings.schedule.report.summary" = "%lld controllati, %lld scaricati, %lld saltati, %lld falliti.";
+"settings.schedule.report.last_run" = "Ultima esecuzione: %@";
+"settings.schedule.report.checked" = "Controllati";
+"settings.schedule.report.downloaded" = "Scaricati";
+"settings.schedule.report.skipped" = "Saltati";
+"settings.schedule.report.failed" = "Falliti";
+"settings.schedule.report.clear" = "Cancella report";
 "settings.schedule.workflow.title" = "Come Funziona";
 "settings.schedule.workflow.body" = "Avvio automatico e sveglia del Mac sono separati. Attivare la pianificazione salva subito l'orario dell'app. La sveglia del Mac richiede un passaggio aggiuntivo con autorizzazione amministratore.";
 "settings.schedule.workflow.note" = "Se cambi orario o giorni dopo aver configurato la sveglia del Mac, aggiorna di nuovo la sveglia.";
@@ -178,9 +218,52 @@
 "settings.schedule.wake.enable_first" = "Abilita prima la pianificazione automatica.";
 "settings.schedule.wake.disable_separately" = "La pianificazione automatica è stata disattivata. La sveglia del Mac potrebbe essere ancora attiva e può essere disattivata separatamente qui sotto.";
 "settings.schedule.wake.footer" = "Usa 'pmset repeat wakeorpoweron' per svegliare o accendere il Mac prima dell'avvio pianificato. Richiede la password di amministratore una volta sola.";
+"setup.open" = "Apri setup";
+"setup.title" = "Setup iniziale";
+"setup.subtitle" = "Permessi, cartelle e scelte iniziali in un flusso guidato.";
+"setup.step.permissions" = "Permessi";
+"setup.step.folders" = "Cartelle";
+"setup.step.finish" = "Fine";
+"setup.permissions.body" = "Se vuoi usare le cartelle firmware Apple di default, il Full Disk Access è fortemente consigliato. In alternativa puoi usare una destinazione personalizzata.";
+"setup.permissions.banner" = "Stato permessi";
+"setup.folders.body" = "Scegli se mantenere la struttura cartelle Apple di default o convogliare tutto in una cartella radice personalizzata gestita dall'app.";
+"setup.folders.banner" = "Destinazione attuale";
+"setup.finish.title" = "Setup completato";
+"setup.finish.body" = "Puoi cambiare tutte queste scelte più tardi dalle Impostazioni. L'app è pronta per analizzare i dispositivi e gestire i download.";
+"setup.finish.banner" = "Prossimo passo";
+"setup.finish.ready" = "L'app ora può caricare i dispositivi, ripristinare i download interrotti e avviare subito nuovi batch.";
+"setup.summary.permission" = "Full Disk Access";
+"setup.summary.permission_denied" = "Ancora mancante";
+"setup.summary.permission_unknown" = "Non verificato automaticamente";
+"setup.summary.destination" = "Destinazione";
+"setup.summary.destination_default" = "Cartelle Apple di default";
+"setup.summary.welcome" = "Mostra benvenuto all'avvio";
+"setup.summary.enabled" = "Attivo";
+"setup.summary.disabled" = "Disattivo";
+"setup.open.settings" = "Apri impostazioni";
+"setup.finish" = "Apri app";
 
 /* IPSWViewModel */
 "error.no_signed_firmware" = "Nessun firmware firmato disponibile";
 "error.full_disk_access_required" = "È richiesto il Full Disk Access per scrivere i file IPSW nelle cartelle della Libreria utente.";
 "template.error.latest_ios" = "Impossibile determinare l'ultima versione iOS: %@";
+"activity.devices_loaded.title" = "Catalogo dispositivi aggiornato";
+"activity.devices_loaded.message" = "%lld dispositivi caricati dall'API.";
+"activity.devices_failed.title" = "Aggiornamento catalogo dispositivi fallito";
+"activity.download_queued" = "Messo in coda finché non si libera uno slot download.";
+"activity.download_start" = "Avvio tentativo download %1$lld/%2$lld.";
+"activity.download_retry" = "Nuovo tentativo %1$lld/%2$lld tra %3$llds a causa di: %@";
+"activity.download_completed" = "Download di %@ (%@) completato con successo.";
+"activity.download_already_present" = "Il firmware %@ (%@) è già presente in locale.";
+"activity.download_cancelled" = "Download annullato dall'utente.";
+"activity.download_removed" = "Rimosso dalla selezione corrente e dalla lista task.";
+"activity.download_restored" = "Ripristinato dalla sessione precedente e rimesso in coda.";
+"activity.auto_launch.start.title" = "Esecuzione pianificata avviata";
+"activity.auto_launch.start.message" = "Controllo di %lld dispositivi nella selezione automatica corrente.";
+"activity.auto_launch.no_signed" = "Nessun firmware firmato disponibile al momento.";
+"activity.auto_launch.already_downloaded" = "Il firmware %@ (%@) è già disponibile in locale.";
+"activity.auto_launch.download_started" = "L'esecuzione pianificata ha avviato il download di %@ (%@).";
+"activity.auto_launch.failed" = "Esecuzione pianificata fallita: %@";
+"activity.auto_launch.summary.title" = "Esecuzione pianificata completata";
+"activity.auto_launch.summary.message" = "%lld controllati, %lld scaricati, %lld saltati, %lld falliti.";
 "welcome.title.developer" = "Sviluppato da iCosiSenpai";

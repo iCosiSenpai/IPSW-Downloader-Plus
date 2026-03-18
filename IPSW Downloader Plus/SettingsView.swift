@@ -4,25 +4,63 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
 
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "2"
+        return String(format: String(localized: "settings.footer.version"), version, build)
+    }
+
     var body: some View {
-        TabView {
-            GeneralSettingsTab(settings: settings)
-                .tabItem { Label(String(localized: "settings.tab.general"), systemImage: "gearshape") }
+        VStack(spacing: 0) {
+            TabView {
+                GeneralSettingsTab(settings: settings)
+                    .tabItem { Label(String(localized: "settings.tab.general"), systemImage: "gearshape") }
 
-            DownloadSettingsTab(settings: settings)
-                .tabItem { Label(String(localized: "settings.tab.download"), systemImage: "arrow.down.circle") }
+                DownloadSettingsTab(settings: settings)
+                    .tabItem { Label(String(localized: "settings.tab.download"), systemImage: "arrow.down.circle") }
 
-            ScheduleSettingsTab(settings: settings)
-                .tabItem { Label(String(localized: "settings.tab.schedule"), systemImage: "calendar.badge.clock") }
+                ScheduleSettingsTab(settings: settings)
+                    .tabItem { Label(String(localized: "settings.tab.schedule"), systemImage: "calendar.badge.clock") }
 
-            DeviceFilterTab(settings: settings)
-                .tabItem { Label(String(localized: "settings.tab.devices"), systemImage: "iphone") }
+                DeviceFilterTab(settings: settings)
+                    .tabItem { Label(String(localized: "settings.tab.devices"), systemImage: "iphone") }
+            }
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Text(appVersion)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button(String(localized: "settings.general.startup.open_welcome")) {
+                    NotificationCenter.default.post(name: .showWelcomeFlow, object: nil)
+                }
+                .buttonStyle(.link)
+
+                Button(String(localized: "settings.general.startup.open_setup")) {
+                    NotificationCenter.default.post(name: .showInitialSetupFlow, object: nil)
+                }
+                .buttonStyle(.link)
+
+                Link(String(localized: "settings.footer.github"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                    .buttonStyle(.link)
+
+                Link(String(localized: "settings.footer.support"), destination: URL(string: "https://paypal.me/AlessioCosi")!)
+                    .buttonStyle(.link)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.bar)
         }
-        .frame(width: 560, height: 420)
+        .frame(width: 620, height: 470)
     }
 }
 
@@ -37,7 +75,17 @@ private struct GeneralSettingsTab: View {
 
                 // Startup
                 SettingsGroup(title: String(localized: "settings.general.startup.title")) {
-                    Toggle(String(localized: "settings.general.startup.show_welcome"), isOn: $settings.showWelcomeOnStartup)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle(String(localized: "settings.general.startup.show_welcome"), isOn: $settings.showWelcomeOnStartup)
+
+                        Text(
+                            settings.hasCompletedInitialSetup
+                                ? String(localized: "settings.general.startup.setup_completed")
+                                : String(localized: "settings.general.startup.setup_pending")
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
 
                 // Obsolete firmware
@@ -119,6 +167,7 @@ private struct GeneralSettingsTab: View {
     }
 }
 
+
 // MARK: - Download Tab
 
 private struct DownloadSettingsTab: View {
@@ -177,12 +226,13 @@ private struct DownloadSettingsTab: View {
 private struct FolderSizeView: View {
     @State private var itunesSize: String = "…"
     @State private var configuratorSize: String = "…"
+    @State private var customDirectorySize: String = "…"
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 6) {
             if settings.isUsingCustomDownloadDirectory {
-                sizeRow(title: String(localized: "settings.general.folders.custom_title"), value: customSize)
+                sizeRow(title: String(localized: "settings.general.folders.custom_title"), value: customDirectorySize)
             }
             sizeRow(title: "iTunes Software Updates", value: itunesSize)
             sizeRow(title: "Configurator Firmware", value: configuratorSize)
@@ -193,29 +243,28 @@ private struct FolderSizeView: View {
         }
     }
 
-    private var customSize: String {
-        guard let url = settings.customDownloadDirectoryURL else { return "N/A" }
-        return folderSizeSync(url)
-    }
-
     @MainActor
     private func loadSizes() async {
+        let custom = await Task.detached(priority: .utility) { [customURL = settings.customDownloadDirectoryURL] in
+            Self.folderSizeSync(customURL)
+        }.value
         let itunes = await Task.detached(priority: .utility) {
-            folderSizeSync(try? DeviceCategory.iTunes(productType: "iPhone").destinationDirectory())
+            Self.folderSizeSync(try? DeviceCategory.iTunes(productType: "iPhone").destinationDirectory())
         }.value
         let config = await Task.detached(priority: .utility) {
-            folderSizeSync(try? DeviceCategory.configurator.destinationDirectory())
+            Self.folderSizeSync(try? DeviceCategory.configurator.destinationDirectory())
         }.value
+        customDirectorySize = settings.isUsingCustomDownloadDirectory ? custom : "N/A"
         itunesSize = itunes
         configuratorSize = config
     }
 
-    private nonisolated func folderSizeSync(_ directory: URL?) -> String {
+    private nonisolated static func folderSizeSync(_ directory: URL?) -> String {
         guard let dir = directory else { return "N/A" }
         return folderSizeSync(dir)
     }
 
-    private nonisolated func folderSizeSync(_ dir: URL) -> String {
+    private nonisolated static func folderSizeSync(_ dir: URL) -> String {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: dir,
                                               includingPropertiesForKeys: [.fileSizeKey],
@@ -229,7 +278,7 @@ private struct FolderSizeView: View {
         return formatBytes(total)
     }
 
-    private nonisolated func formatBytes(_ bytes: Int64) -> String {
+    private nonisolated static func formatBytes(_ bytes: Int64) -> String {
         let gb = Double(bytes) / 1_073_741_824
         if gb >= 1 { return String(format: "%.2f GB", gb) }
         let mb = Double(bytes) / 1_048_576
@@ -268,6 +317,57 @@ private struct ScheduleSettingsTab: View {
                 }
 
                 if settings.autoLaunchEnabled {
+                    SettingsGroup(title: String(localized: "settings.schedule.agent.title")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: settings.launchAgentLoaded ? "checkmark.circle.fill" : "bolt.horizontal.circle")
+                                    .foregroundStyle(settings.launchAgentLoaded ? .green : .secondary)
+                                Text(settings.launchAgentStatusDescription)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(String(localized: "settings.schedule.agent.footer"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let report = settings.lastAutoLaunchReport,
+                       let summary = settings.lastAutoLaunchReportDescription {
+                        SettingsGroup(title: String(localized: "settings.schedule.report.title")) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: report.completionKind.systemImage)
+                                        .foregroundStyle(report.hadFailures ? .orange : .green)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(summary)
+                                            .font(.callout)
+                                        Text(
+                                            String(
+                                                format: String(localized: "settings.schedule.report.last_run"),
+                                                report.finishedAt.formatted(date: .abbreviated, time: .shortened)
+                                            )
+                                        )
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                HStack(spacing: 8) {
+                                    reportBadge(title: String(localized: "settings.schedule.report.checked"), value: report.checkedCount, tint: .blue)
+                                    reportBadge(title: String(localized: "settings.schedule.report.downloaded"), value: report.downloadedCount, tint: .green)
+                                    reportBadge(title: String(localized: "settings.schedule.report.skipped"), value: report.skippedCount, tint: .secondary)
+                                    reportBadge(title: String(localized: "settings.schedule.report.failed"), value: report.failedCount, tint: .orange)
+                                }
+
+                                Button(String(localized: "settings.schedule.report.clear")) {
+                                    settings.clearAutoLaunchReport()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+
                     SettingsGroup(title: String(localized: "settings.schedule.workflow.title")) {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(String(localized: "settings.schedule.workflow.body"))
@@ -389,6 +489,21 @@ private struct ScheduleSettingsTab: View {
             .animation(.default, value: settings.autoLaunchEnabled)
         }
     }
+}
+
+private func reportBadge(title: String, value: Int, tint: Color) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+        Text(title)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        Text("\(value)")
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.primary)
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 8)
+    .background(tint.opacity(0.1))
+    .clipShape(RoundedRectangle(cornerRadius: 8))
 }
 
 private struct DayToggle: View {

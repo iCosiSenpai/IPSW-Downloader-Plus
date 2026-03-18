@@ -6,27 +6,85 @@
 import Foundation
 import AppKit
 
+enum FullDiskAccessStatus: Equatable, Sendable {
+    case granted
+    case denied
+    case undetermined
+}
+
 enum FullDiskAccessChecker {
-    /// Verifica il Full Disk Access tentando di leggere uno fra più percorsi protetti
-    /// che tipicamente richiedono questo permesso. Usare più probe riduce i falsi
-    /// negativi sui sistemi dove Safari o altri database non esistono ancora.
-    nonisolated static func check() -> Bool {
+    private enum ProbeKind {
+        case file
+        case directory
+    }
+
+    /// Verifica il Full Disk Access tentando di leggere più percorsi protetti.
+    /// Restituisce `.undetermined` se nessuno dei probe è disponibile sul sistema.
+    nonisolated static func status() -> FullDiskAccessStatus {
         let fm = FileManager.default
         let library = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library")
-        let protectedPaths = [
-            library.appendingPathComponent("Application Support/com.apple.TCC/TCC.db"),
-            library.appendingPathComponent("Safari/History.db"),
-            library.appendingPathComponent("Messages/chat.db"),
-            library.appendingPathComponent("Mail")
+        let probes: [(url: URL, kind: ProbeKind)] = [
+            (library.appendingPathComponent("Application Support/com.apple.TCC/TCC.db"), .file),
+            (library.appendingPathComponent("Safari"), .directory),
+            (library.appendingPathComponent("Messages"), .directory),
+            (library.appendingPathComponent("Mail"), .directory)
         ]
+        var foundAtLeastOneProbe = false
+        var foundGrantedProbe = false
+        var foundPermissionDeniedProbe = false
 
-        for url in protectedPaths where fm.fileExists(atPath: url.path) {
-            if fm.isReadableFile(atPath: url.path) {
-                return true
+        for probe in probes where fm.fileExists(atPath: probe.url.path) {
+            foundAtLeastOneProbe = true
+            do {
+                switch probe.kind {
+                case .file:
+                    let handle = try FileHandle(forReadingFrom: probe.url)
+                    try handle.close()
+                case .directory:
+                    _ = try fm.contentsOfDirectory(at: probe.url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+                }
+                foundGrantedProbe = true
+                break
+            } catch {
+                if isPermissionDenied(error) {
+                    foundPermissionDeniedProbe = true
+                }
             }
         }
 
-        return false
+        return resolveStatus(
+            foundAtLeastOneProbe: foundAtLeastOneProbe,
+            foundGrantedProbe: foundGrantedProbe,
+            foundPermissionDeniedProbe: foundPermissionDeniedProbe
+        )
+    }
+
+    nonisolated static func check() -> Bool {
+        switch status() {
+        case .granted:
+            return true
+        case .denied, .undetermined:
+            return false
+        }
+    }
+
+    nonisolated private static func isPermissionDenied(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError
+    }
+
+    nonisolated static func resolveStatus(
+        foundAtLeastOneProbe: Bool,
+        foundGrantedProbe: Bool,
+        foundPermissionDeniedProbe: Bool
+    ) -> FullDiskAccessStatus {
+        if foundGrantedProbe {
+            return .granted
+        }
+        if foundPermissionDeniedProbe {
+            return .denied
+        }
+        return foundAtLeastOneProbe ? .denied : .undetermined
     }
 
     @MainActor

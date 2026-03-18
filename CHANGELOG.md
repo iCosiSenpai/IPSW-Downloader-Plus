@@ -1,0 +1,36 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+## [1.1.0] - 2026-03-18
+
+### Added
+
+- New app icon in `AppIcon.appiconset`, suitable for standard, dark, and monochrome contexts.
+- Activity log with recent events for device loading, downloads, retries, cancellations, and scheduled runs.
+- Persisted app state for selected devices, task queue, activity history, and download resume data.
+- Initial onboarding split into a dedicated welcome screen followed by a guided setup flow.
+- Scheduled run reporting in Settings, including checked, downloaded, skipped, and failed counts.
+- Test target and persistence/runtime logic coverage for restored state, retry policy, and Full Disk Access resolution.
+
+### Changed
+
+- Updated app version to `1.1.0`.
+- Improved download scheduling so the concurrency limit now covers both metadata fetches and active transfers.
+- Improved download robustness with retry handling for transient failures and resume support for interrupted downloads.
+- Improved Full Disk Access evaluation by distinguishing `granted`, `denied`, and `undetermined`.
+- Modernized LaunchAgent handling with `bootout`, `bootstrap`, `enable`, and status inspection.
+- Refined Settings window UX and surfaced onboarding, GitHub, and donation links directly in the window footer.
+- Updated README release information for GitHub release `v1.1.0`.
+
+### Fixed
+
+- Fixed silent failures when a device firmware lookup fails before a visible task is created.
+- Fixed firmware date sorting so ascending and descending ordering use stable metadata and correct fallbacks.
+- Fixed the duplicate sidebar toggle regression by keeping only the native macOS control.
+- Fixed blocking folder-size calculation for custom destinations by moving the work off the main rendering path.
+- Removed residual references to Pico Mitchell from localized strings and code comments.
+
+## [1.0.0]
+
+- Initial public release.

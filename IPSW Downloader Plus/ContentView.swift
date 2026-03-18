@@ -10,6 +10,7 @@ import AppKit
 
 struct ContentView: View {
     @ObservedObject var viewModel: IPSWViewModel
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         VStack(spacing: 0) {
@@ -74,7 +75,7 @@ struct ContentView: View {
     @ViewBuilder
     private var navigationContainer: some View {
         if #available(macOS 13.0, *) {
-            NavigationSplitView(columnVisibility: .constant(.all)) {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(viewModel: viewModel)
             } detail: {
                 DetailView(viewModel: viewModel)
@@ -87,6 +88,7 @@ struct ContentView: View {
             }
         }
     }
+
 }
 
 // MARK: - Sidebar (Device List)
@@ -259,6 +261,7 @@ struct SidebarView: View {
             }
         }
     }
+
 }
 
 private struct CompatibleSidebarWidth: ViewModifier {
@@ -396,6 +399,23 @@ struct DetailView: View {
         }
     }
 
+    private var recentActivityEntries: [ActivityLogEntry] {
+        viewModel.recentActivityEntries.filter { entry in
+            guard let identifier = entry.deviceIdentifier else { return true }
+            return viewModel.selectedDeviceIDs.contains(identifier)
+        }
+    }
+
+    private var headerStatusLine: String {
+        String(
+            format: String(localized: "detail.header.status"),
+            readyDevices.count,
+            activeDevices.count,
+            completedDevices.count,
+            failedDevices.count
+        )
+    }
+
     var body: some View {
         if viewModel.selectedDeviceIDs.isEmpty {
             VStack(spacing: 12) {
@@ -411,9 +431,20 @@ struct DetailView: View {
                 // Header
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text(String(format: String(localized: "detail.header.selected"), viewModel.selectedDeviceIDs.count))
-                            .font(.headline)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(String(format: String(localized: "detail.header.selected"), viewModel.selectedDeviceIDs.count))
+                                .font(.headline)
+                            Text(headerStatusLine)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
+                        Button {
+                            viewModel.openDownloadFolder()
+                        } label: {
+                            Label(String(localized: "detail.open_folder"), systemImage: "folder")
+                        }
+                        .buttonStyle(.bordered)
                         Button {
                             viewModel.downloadSelectedDevices()
                         } label: {
@@ -441,12 +472,64 @@ struct DetailView: View {
                     DownloadSectionList(title: String(localized: "detail.section.ready"), devices: readyDevices, viewModel: viewModel)
                     DownloadSectionList(title: String(localized: "detail.section.completed"), devices: completedDevices, viewModel: viewModel)
                     DownloadSectionList(title: String(localized: "detail.section.failed"), devices: failedDevices, viewModel: viewModel)
+                    ActivitySectionList(entries: recentActivityEntries)
                 }
                 .listStyle(.inset)
                 .scrollContentBackground(.hidden)
                 .background(Color(NSColor.controlBackgroundColor))
             }
-            .navigationTitle(String(localized: "sidebar.toolbar.download_folder"))
+            .navigationTitle(String(localized: "detail.navigation.title"))
+        }
+    }
+}
+
+private struct ActivitySectionList: View {
+    let entries: [ActivityLogEntry]
+
+    var body: some View {
+        if !entries.isEmpty {
+            Section {
+                ForEach(entries) { entry in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: entry.kind.systemImage)
+                            .foregroundStyle(color(for: entry.kind))
+                            .frame(width: 16, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(entry.title)
+                                    .font(.caption.weight(.semibold))
+                                Spacer()
+                                Text(entry.timestamp, style: .time)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(entry.message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                    .listRowBackground(Color.clear)
+                }
+            } header: {
+                Text(String(localized: "detail.section.activity"))
+                    .font(.caption.weight(.bold))
+                    .textCase(.uppercase)
+            }
+        }
+    }
+
+    private func color(for kind: ActivityLogKind) -> Color {
+        switch kind {
+        case .info:
+            return .blue
+        case .success:
+            return .green
+        case .warning:
+            return .orange
+        case .error:
+            return .red
         }
     }
 }
@@ -571,12 +654,7 @@ struct DownloadTaskCard: View {
             // Progress / state
             switch state {
             case .queued:
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text(String(localized: "download.queued"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                queuedStateView
             case .verifying:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -591,11 +669,22 @@ struct DownloadTaskCard: View {
                     HStack {
                         Text(String(localized: "download.in_progress"))
                         Spacer()
-                        Text("\(Int(progress * 100))%")
+                        Text(task?.progressDetails?.percentText ?? "\(Int(progress * 100))%")
                             .monospacedDigit()
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    if let details = task?.progressDetails {
+                        HStack {
+                            Text(details.transferredText)
+                            Spacer()
+                            Text(details.speedText)
+                            Text("·")
+                            Text(String(format: String(localized: "download.eta"), details.etaText))
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    }
                 }
             case .completed(let url):
                 HStack {
@@ -612,14 +701,22 @@ struct DownloadTaskCard: View {
                 }
                 .font(.caption)
             case .failed(let error):
-                HStack {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.red)
-                    Text(error)
-                        .foregroundStyle(.red)
-                        .lineLimit(2)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .lineLimit(2)
+                    }
+                    .font(.caption)
+
+                    if let attemptLabel {
+                        Text(attemptLabel)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .font(.caption)
             case .idle:
                 EmptyView()
             }
@@ -681,6 +778,28 @@ struct DownloadTaskCard: View {
     }
 
     @ViewBuilder
+    private var queuedStateView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(String(localized: "download.queued"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let attemptLabel {
+                Text(attemptLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var attemptLabel: String? {
+        guard let task, task.attemptCount > 0 else { return nil }
+        return String(format: String(localized: "download.attempt"), task.attemptCount, 3)
+    }
+
+    @ViewBuilder
     private var statusBadge: some View {
         switch state {
         case .idle:
@@ -737,6 +856,8 @@ struct DownloadTaskCard: View {
 
 // MARK: - Preview
 
-#Preview {
-    ContentView(viewModel: IPSWViewModel())
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView(viewModel: IPSWViewModel())
+    }
 }

@@ -9,7 +9,6 @@ import CryptoKit
 // MARK: - Device Category
 
 /// Categorizza un device identifier per determinare la cartella di destinazione corretta.
-/// Ispirato a IPSW Updater di Pico Mitchell (freegeek-pdx).
 enum DeviceCategory {
     /// iPhone, iPad, iPod touch → ~/Library/iTunes/{ProductType} Software Updates
     case iTunes(productType: String)
@@ -203,13 +202,16 @@ final class IPSWAPIClient {
 
 final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
 
-    var onProgress: ((Double) -> Void)?
+    var onProgress: ((DownloadProgressDetails) -> Void)?
     var onVerifying: (() -> Void)?      // chiamato prima del calcolo SHA1
     var onCompletion: ((Result<URL, Error>) -> Void)?
 
     private var downloadTask: URLSessionDownloadTask?
     private var targetFirmware: IPSWFirmware?
     private var shouldVerifyChecksum = true
+    private var lastProgressTimestamp: Date?
+    private var lastProgressBytesWritten: Int64 = 0
+    private var pendingResumeDataHandler: ((Data?) -> Void)?
 
     private lazy var downloadSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -218,7 +220,7 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
     }()
 
     /// Avvia il download verificando l'URL e saltando se il file valido esiste già.
-    func startDownload(firmware: IPSWFirmware, verifyChecksum: Bool = true) throws {
+    func startDownload(firmware: IPSWFirmware, verifyChecksum: Bool = true, resumeData: Data? = nil) throws {
         guard let url = firmware.downloadURL else {
             throw IPSWError.invalidURL
         }
@@ -250,7 +252,13 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
 
         targetFirmware = firmware
         shouldVerifyChecksum = verifyChecksum
-        downloadTask = downloadSession.downloadTask(with: url)
+        lastProgressTimestamp = nil
+        lastProgressBytesWritten = 0
+        if let resumeData {
+            downloadTask = downloadSession.downloadTask(withResumeData: resumeData)
+        } else {
+            downloadTask = downloadSession.downloadTask(with: url)
+        }
         downloadTask?.resume()
     }
 
@@ -258,6 +266,26 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         downloadTask?.cancel()
         downloadTask = nil
         targetFirmware = nil
+        lastProgressTimestamp = nil
+        lastProgressBytesWritten = 0
+    }
+
+    func cancelProducingResumeData(_ completion: @escaping (Data?) -> Void) {
+        guard let downloadTask else {
+            completion(nil)
+            return
+        }
+        pendingResumeDataHandler = completion
+        downloadTask.cancel(byProducingResumeData: { [weak self] resumeData in
+            DispatchQueue.main.async {
+                self?.pendingResumeDataHandler?(resumeData)
+                self?.pendingResumeDataHandler = nil
+                self?.downloadTask = nil
+                self?.targetFirmware = nil
+                self?.lastProgressTimestamp = nil
+                self?.lastProgressBytesWritten = 0
+            }
+        })
     }
 
     // MARK: - URLSessionDownloadDelegate
@@ -269,8 +297,28 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
                     totalBytesExpectedToWrite: Int64) {
         guard totalBytesExpectedToWrite > 0 else { return }
         let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        let now = Date()
+        let bytesPerSecond: Double
+        if let lastProgressTimestamp {
+            let interval = now.timeIntervalSince(lastProgressTimestamp)
+            if interval > 0 {
+                bytesPerSecond = Double(totalBytesWritten - lastProgressBytesWritten) / interval
+            } else {
+                bytesPerSecond = 0
+            }
+        } else {
+            bytesPerSecond = 0
+        }
+        self.lastProgressTimestamp = now
+        self.lastProgressBytesWritten = totalBytesWritten
+        let details = DownloadProgressDetails(
+            fractionCompleted: progress,
+            bytesWritten: totalBytesWritten,
+            totalBytesExpected: totalBytesExpectedToWrite,
+            bytesPerSecond: max(0, bytesPerSecond)
+        )
         DispatchQueue.main.async { [weak self] in
-            self?.onProgress?(progress)
+            self?.onProgress?(details)
         }
     }
 

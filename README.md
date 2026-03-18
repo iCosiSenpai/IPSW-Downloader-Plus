@@ -13,20 +13,25 @@ It can:
 - fetch device and firmware data from `ipsw.me`
 - organize downloads by device category
 - save firmware in Apple's default folders or in a custom destination
-- queue and manage multiple downloads
+- queue and manage multiple downloads with throttling
+- retry transient failures and resume interrupted downloads
 - verify SHA1 checksums
 - monitor local firmware folders
 - schedule automatic launches
 - optionally configure Mac wake scheduling
+- restore state, pending tasks, and activity history between launches
 
 ## Features
 
 - Device sidebar with search, filters, and sorting
 - Batch download flow for selected devices
 - Download center grouped by state
+- Persisted queue, activity log, and resumed downloads after relaunch
 - Custom download folder support
 - Full Disk Access guidance for default Apple folders
+- Guided welcome and initial setup flow
 - Automatic cleanup of outdated firmware
+- LaunchAgent status and scheduled run reporting
 - Local notifications for completed downloads
 - English and Italian localization
 
@@ -70,9 +75,9 @@ They are intentionally separate in the UI:
 
 ## Release
 
-Current release: [v1.0.0](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/tag/v1.0.0)
+Current release: [v1.1.0](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/tag/v1.1.0)
 
-DMG download: [IPSW Downloader Plus.dmg](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/download/v1.0.0/IPSW%20Downloader%20Plus.dmg)
+DMG download: [IPSW Downloader Plus 1.1.0.dmg](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/download/v1.1.0/IPSW%20Downloader%20Plus%201.1.0.dmg)
 
 ## Support
 

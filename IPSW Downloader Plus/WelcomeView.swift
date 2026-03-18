@@ -7,349 +7,421 @@ import SwiftUI
 import AppKit
 
 struct WelcomeView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openWindow) private var openWindow
+    let onContinue: () -> Void
+
     @ObservedObject private var settings = AppSettings.shared
-    @State private var selectedTab = 0
-    @State private var maxUnlockedTab = 0
 
     var body: some View {
         VStack(spacing: 0) {
-            // MARK: Header
-            HStack(spacing: 14) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(Color.accentColor)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(String(localized: "welcome.title"))
-                        .font(.title3.weight(.bold))
-                    Link(String(localized: "welcome.title.developer"), destination: URL(string: "https://github.com/iCosiSenpai")!)
-                        .font(.subheadline.weight(.semibold))
-                    HStack(spacing: 4) {
-                        Text("Powered by").font(.caption).foregroundStyle(.secondary)
-                        Link("ipsw.me", destination: URL(string: "https://ipsw.me")!).font(.caption)
-                    }
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-            .padding(.bottom, 12)
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .top, spacing: 16) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 52))
+                        .foregroundStyle(Color.accentColor)
 
-            // MARK: Tab bar
-            HStack(spacing: 0) {
-                ForEach(Array(tabLabels.enumerated()), id: \.offset) { index, label in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.18)) { selectedTab = index }
-                    } label: {
-                        Text(label)
-                            .font(.caption.weight(selectedTab == index ? .semibold : .regular))
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 14)
-                            .background(
-                                selectedTab == index
-                                    ? Color.accentColor.opacity(0.15)
-                                    : Color.clear
-                            )
-                            .foregroundStyle(selectedTab == index ? Color.accentColor : Color.secondary)
-                            .clipShape(Capsule())
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(String(localized: "welcome.title"))
+                            .font(.largeTitle.weight(.bold))
+                        Text(String(localized: "welcome.hero.body"))
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Link(String(localized: "welcome.title.developer"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                            .font(.subheadline.weight(.semibold))
                     }
-                    .buttonStyle(.plain)
-                    .disabled(index > maxUnlockedTab)
                 }
-                Spacer()
+
+                HStack(spacing: 14) {
+                    welcomeCard(
+                        title: String(localized: "welcome.card.downloads.title"),
+                        message: String(localized: "welcome.card.downloads.body"),
+                        systemImage: "square.and.arrow.down.on.square.fill",
+                        tint: .blue
+                    )
+                    welcomeCard(
+                        title: String(localized: "welcome.card.setup.title"),
+                        message: String(localized: "welcome.card.setup.body"),
+                        systemImage: "slider.horizontal.3",
+                        tint: .orange
+                    )
+                }
+
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.secondary)
+                    Text(String(localized: "welcome.flow.note"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .background(Color.accentColor.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 6)
+            .padding(28)
 
             Divider()
 
-            // MARK: Content
-            Group {
-                switch selectedTab {
-                case 0: overviewTab
-                case 1: foldersTab
-                case 2: securityTab
-                default: overviewTab
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            Divider()
-
-            // MARK: Footer
-            HStack(spacing: 12) {
+            HStack {
                 Toggle(isOn: $settings.showWelcomeOnStartup) {
                     Text(String(localized: "welcome.cta.show_on_startup"))
-                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
                 .toggleStyle(.checkbox)
 
                 Spacer()
 
-                Button(String(localized: "welcome.cta.settings")) {
+                Button(String(localized: "welcome.cta.continue")) {
+                    onContinue()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 18)
+        }
+        .frame(width: 640, height: 430)
+    }
+
+    @ViewBuilder
+    private func welcomeCard(title: String, message: String, systemImage: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(tint)
+            Text(title)
+                .font(.headline)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(16)
+        .background(tint.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct InitialSetupView: View {
+    @Binding var fullDiskAccessStatus: FullDiskAccessStatus
+    let onFinish: () -> Void
+
+    @Environment(\.openWindow) private var openWindow
+    @ObservedObject private var settings = AppSettings.shared
+    @State private var selectedStep = 0
+
+    private let stepTitles = [
+        "setup.step.permissions",
+        "setup.step.folders",
+        "setup.step.finish"
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                Image(systemName: "wand.and.stars.inverse")
+                    .font(.system(size: 42))
+                    .foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "setup.title"))
+                        .font(.title2.weight(.bold))
+                    Text(String(localized: "setup.subtitle"))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
+
+            Divider()
+
+            HStack(spacing: 10) {
+                ForEach(Array(stepTitles.enumerated()), id: \.offset) { index, key in
+                    setupStepChip(index: index, key: key)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+
+            Divider()
+
+            Group {
+                switch selectedStep {
+                case 0:
+                    permissionsStep
+                case 1:
+                    foldersStep
+                default:
+                    finishStep
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
+            HStack {
+                Button(String(localized: "setup.open.settings")) {
                     openWindow(id: "settings")
                 }
                 .buttonStyle(.bordered)
 
-                if selectedTab > 0 {
+                Spacer()
+
+                if selectedStep > 0 {
                     Button(String(localized: "welcome.cta.back")) {
                         withAnimation(.easeInOut(duration: 0.18)) {
-                            selectedTab -= 1
+                            selectedStep -= 1
                         }
                     }
                     .buttonStyle(.bordered)
                 }
 
-                if selectedTab < tabLabels.count - 1 {
-                    Button(String(localized: "welcome.cta.next")) {
-                        let nextTab = min(selectedTab + 1, tabLabels.count - 1)
-                        maxUnlockedTab = max(maxUnlockedTab, nextTab)
+                Button(selectedStep == stepTitles.count - 1 ? String(localized: "setup.finish") : String(localized: "welcome.cta.next")) {
+                    if selectedStep == stepTitles.count - 1 {
+                        onFinish()
+                    } else {
                         withAnimation(.easeInOut(duration: 0.18)) {
-                            selectedTab = nextTab
+                            selectedStep += 1
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                } else {
-                    Button(String(localized: "welcome.cta.close")) {
-                        dismiss()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
                 }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .padding(.vertical, 16)
         }
-        .frame(width: 620, height: 500)
-        .onAppear {
-            maxUnlockedTab = max(maxUnlockedTab, selectedTab)
+        .frame(width: 700, height: 560)
+    }
+
+    private var permissionsStep: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                setupStatusBanner(
+                    title: String(localized: "setup.permissions.banner"),
+                    message: permissionSummary,
+                    tint: permissionTint
+                )
+
+                Text(String(localized: "setup.permissions.body"))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+
+                FDAStatusBanner(showGuide: true)
+
+                HStack(spacing: 10) {
+                    Button(String(localized: "welcome.fda.button")) {
+                        FullDiskAccessChecker.openPrivacySettings()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button(String(localized: "welcome.fda.recheck")) {
+                        fullDiskAccessStatus = FullDiskAccessChecker.status()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(24)
         }
     }
 
-    private let tabLabels = ["Overview", "Folders", "Security"]
-
-    // MARK: - Overview Tab
-
-    private var overviewTab: some View {
+    private var foldersStep: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-
-                Text(String(localized: "welcome.description1"))
-                    .font(.body)
-                    .foregroundStyle(.primary.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(String(localized: "welcome.description2"))
-                    .font(.body)
-                    .foregroundStyle(.primary.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Full Disk Access status banner
-                FDAStatusBanner()
-
-                warningBox(
-                    title: String(localized: "welcome.custom_folder.warning_title"),
+            VStack(alignment: .leading, spacing: 16) {
+                setupStatusBanner(
+                    title: String(localized: "setup.folders.banner"),
                     message: settings.isUsingCustomDownloadDirectory
-                        ? String(format: String(localized: "welcome.custom_folder.warning_active"), settings.customDownloadDirectoryDisplayPath)
-                        : String(localized: "welcome.custom_folder.warning_body"),
-                    color: .orange
+                        ? settings.customDownloadDirectoryDisplayPath
+                        : String(localized: "setup.summary.destination_default"),
+                    tint: settings.isUsingCustomDownloadDirectory ? .orange : .blue
                 )
 
-                // Scheduling note
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.yellow)
-                        .font(.body)
-                        .frame(width: 20)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(String(localized: "welcome.schedule.title"))
-                            .fontWeight(.semibold)
-                            .font(.callout)
-                        Text(String(localized: "welcome.schedule.warning"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                Text(String(localized: "setup.folders.body"))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 12) {
+                    folderCard(
+                        title: String(localized: "welcome.folders.itunes.title"),
+                        body: String(localized: "welcome.folders.itunes.desc"),
+                        systemImage: "iphone"
+                    )
+                    folderCard(
+                        title: String(localized: "welcome.folders.configurator.title"),
+                        body: String(localized: "welcome.folders.configurator.desc"),
+                        systemImage: "appletv"
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(localized: "settings.general.folders.custom_title"))
+                        .font(.headline)
+                    Text(settings.customDownloadDirectoryDisplayPath)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+
+                    HStack(spacing: 10) {
+                        Button(String(localized: "settings.general.folders.choose")) {
+                            settings.chooseCustomDownloadDirectory()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(String(localized: "settings.general.folders.reset")) {
+                            settings.resetCustomDownloadDirectory()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!settings.isUsingCustomDownloadDirectory)
                     }
                 }
-                .padding(10)
-                .background(Color.yellow.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
+                .padding(14)
+                .background(Color.orange.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .padding(20)
+            .padding(24)
         }
     }
 
-    // MARK: - Folders Tab
+    private var finishStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label(String(localized: "setup.finish.title"), systemImage: "checkmark.seal.fill")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.green)
 
-    private var foldersTab: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            Text(String(localized: "setup.finish.body"))
+                .foregroundStyle(.secondary)
 
-                Label(String(localized: "welcome.folders.title"), systemImage: "folder.badge.gear")
-                    .font(.headline)
+            summaryRow(
+                title: String(localized: "setup.summary.permission"),
+                value: permissionSummary
+            )
+            summaryRow(
+                title: String(localized: "setup.summary.destination"),
+                value: settings.isUsingCustomDownloadDirectory
+                    ? settings.customDownloadDirectoryDisplayPath
+                    : String(localized: "setup.summary.destination_default")
+            )
+            summaryRow(
+                title: String(localized: "setup.summary.welcome"),
+                value: settings.showWelcomeOnStartup
+                    ? String(localized: "setup.summary.enabled")
+                    : String(localized: "setup.summary.disabled")
+            )
 
-                folderBlock(
-                    symbol: "iphone",
-                    title: String(localized: "welcome.folders.itunes.title"),
-                    description: String(localized: "welcome.folders.itunes.desc"),
-                    path: "\(FileManager.default.homeDirectoryForCurrentUser.path)/Library/iTunes",
-                    category: .iTunes(productType: "iPhone")
-                )
+            setupStatusBanner(
+                title: String(localized: "setup.finish.banner"),
+                message: String(localized: "setup.finish.ready"),
+                tint: .green
+            )
 
-                folderBlock(
-                    symbol: "appletv",
-                    title: String(localized: "welcome.folders.configurator.title"),
-                    description: String(localized: "welcome.folders.configurator.desc"),
-                    path: "\(FileManager.default.homeDirectoryForCurrentUser.path)/Library/Group Containers/K36BKF7T3D…/Firmware",
-                    category: .configurator
-                )
-
-                Divider()
-
-                Label(String(localized: "welcome.reorganize.title"), systemImage: "arrow.triangle.2.circlepath")
-                    .font(.headline)
-
-                Text(String(localized: "welcome.reorganize.body"))
-                    .font(.body)
-                    .foregroundStyle(.primary.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    bulletPoint(String(localized: "welcome.reorganize.bullet1"))
-                    bulletPoint(String(localized: "welcome.reorganize.bullet2"))
-                    bulletPoint(String(localized: "welcome.reorganize.bullet3"))
-                    bulletPoint(String(localized: "welcome.reorganize.bullet4"))
-                    bulletPoint(String(localized: "welcome.reorganize.bullet5"))
-                }
-
-                Divider()
-
-                Label(String(localized: "welcome.excluded.title"), systemImage: "xmark.circle")
-                    .font(.headline)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    bulletPoint(String(localized: "welcome.excluded.bullet1"))
-                    bulletPoint(String(localized: "welcome.excluded.bullet2"))
-                }
-
-                warningBox(
-                    title: String(localized: "welcome.custom_folder.warning_title"),
-                    message: settings.isUsingCustomDownloadDirectory
-                        ? String(format: String(localized: "welcome.custom_folder.warning_active"), settings.customDownloadDirectoryDisplayPath)
-                        : String(localized: "welcome.custom_folder.warning_settings"),
-                    color: .orange
-                )
-            }
-            .padding(20)
+            Spacer()
         }
+        .padding(24)
     }
 
-    // MARK: - Security Tab
-
-    private var securityTab: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-
-                Label(String(localized: "welcome.security.title"), systemImage: "checkmark.shield")
-                    .font(.headline)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    bulletPoint(String(localized: "welcome.security.bullet1"))
-                    bulletPoint(String(localized: "welcome.security.bullet2"))
-                    bulletPoint(String(localized: "welcome.security.bullet3"))
-                }
-
-                warningBox(
-                    title: String(localized: "welcome.security.fda_required.title"),
-                    message: settings.isUsingCustomDownloadDirectory
-                        ? String(format: String(localized: "welcome.security.fda_required.custom"), settings.customDownloadDirectoryDisplayPath)
-                        : String(localized: "welcome.security.fda_required.body"),
-                    color: .red
-                )
-
-                Divider()
-
-                // FDA detailed guide
-                FDAStatusBanner(showGuide: true)
-            }
-            .padding(20)
-        }
-    }
-
-    // MARK: - Helpers
-
-    @ViewBuilder
-    private func bulletPoint(_ content: String) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            Text("•").font(.body.weight(.bold)).foregroundStyle(Color.accentColor)
-            Text(content).font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+    private var permissionTint: Color {
+        switch fullDiskAccessStatus {
+        case .granted:
+            return .green
+        case .denied:
+            return .orange
+        case .undetermined:
+            return .yellow
         }
     }
 
     @ViewBuilder
-    private func folderBlock(symbol: String, title: String, description: String, path: String, category: DeviceCategory) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol)
-                .font(.title3).frame(width: 28)
-                .foregroundStyle(Color.accentColor)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.body.weight(.bold))
-                Text(description).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(path)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                Button(String(localized: "welcome.folders.show_in_finder")) {
-                    if let dir = try? category.destinationDirectory() { NSWorkspace.shared.open(dir) }
-                }
-                .buttonStyle(.borderless).font(.caption)
-            }
-        }
-        .padding(10)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+    private func setupStepChip(index: Int, key: String) -> some View {
+        let isReached = index <= selectedStep
+        let isCurrent = index == selectedStep
+        Label(NSLocalizedString(key, comment: ""), systemImage: isReached ? "checkmark.circle.fill" : "circle")
+            .font(.caption.weight(isCurrent ? .semibold : .regular))
+            .foregroundStyle(isReached ? Color.accentColor : .secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isCurrent ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08))
+            .clipShape(Capsule())
     }
 
     @ViewBuilder
-    private func warningBox(title: String, message: String, color: Color) -> some View {
+    private func setupStatusBanner(title: String, message: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(color)
-                .frame(width: 20)
+            Image(systemName: "sparkles")
+                .foregroundStyle(tint)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.callout.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(10)
-        .background(color.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(color.opacity(0.3), lineWidth: 1))
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(tint.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var permissionSummary: String {
+        switch fullDiskAccessStatus {
+        case .granted:
+            return String(localized: "welcome.fda.granted")
+        case .denied:
+            return String(localized: "setup.summary.permission_denied")
+        case .undetermined:
+            return String(localized: "setup.summary.permission_unknown")
+        }
+    }
+
+    @ViewBuilder
+    private func folderCard(title: String, body: String, systemImage: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(Color.accentColor)
+            Text(title)
+                .font(.headline)
+            Text(body)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(14)
+        .background(Color.secondary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private func summaryRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.callout)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(NSColor.windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
 // MARK: - Full Disk Access Status Banner
 
-/// Mostra il banner FDA con stato (verde = concesso, arancione = mancante).
-/// Con showGuide = true mostra anche i passi guidati.
 struct FDAStatusBanner: View {
     var showGuide: Bool = false
 
-    @State private var hasAccess: Bool = FullDiskAccessChecker.check()
+    @State private var status: FullDiskAccessStatus = FullDiskAccessChecker.status()
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: hasAccess ? "lock.shield.fill" : "lock.shield.fill")
-                .foregroundStyle(hasAccess ? .green : .orange)
+            Image(systemName: iconName)
+                .foregroundStyle(iconColor)
                 .font(.title3)
                 .frame(width: 24)
 
@@ -357,45 +429,37 @@ struct FDAStatusBanner: View {
                 HStack(spacing: 6) {
                     Text(String(localized: "welcome.fda.title"))
                         .fontWeight(.semibold)
-                    if hasAccess {
-                        Label(String(localized: "welcome.fda.granted"), systemImage: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
+                    Text(statusBadgeText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(iconColor)
                 }
 
-                if !hasAccess {
-                    Text(String(localized: "welcome.fda.body"))
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                Text(statusBodyText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                    if showGuide {
-                        VStack(alignment: .leading, spacing: 4) {
-                            fdaStep("1", text: String(localized: "welcome.fda.step1"))
-                            fdaStep("2", text: String(localized: "welcome.fda.step2"))
-                            fdaStep("3", text: String(localized: "welcome.fda.step3"))
-                        }
-                        .padding(.top, 2)
+                if showGuide, status != .granted {
+                    VStack(alignment: .leading, spacing: 4) {
+                        fdaStep("1", text: String(localized: "welcome.fda.step1"))
+                        fdaStep("2", text: String(localized: "welcome.fda.step2"))
+                        fdaStep("3", text: String(localized: "welcome.fda.step3"))
                     }
+                    .padding(.top, 2)
+                }
 
+                if status != .granted {
                     Button(String(localized: "welcome.fda.button")) {
                         FullDiskAccessChecker.openPrivacySettings()
-                        // Ricontrolla dopo un breve delay (l'utente potrebbe tornare all'app)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            hasAccess = FullDiskAccessChecker.check()
+                            status = FullDiskAccessChecker.status()
                         }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                } else {
-                    Text(String(localized: "welcome.fda.granted.body"))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
 
-                // Pulsante per ri-controllare manualmente
-                if !hasAccess {
                     Button(String(localized: "welcome.fda.recheck")) {
-                        hasAccess = FullDiskAccessChecker.check()
+                        status = FullDiskAccessChecker.status()
                     }
                     .buttonStyle(.borderless)
                     .font(.caption2)
@@ -405,11 +469,54 @@ struct FDAStatusBanner: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(hasAccess ? Color.green.opacity(0.08) : Color.orange.opacity(0.10))
+        .background(iconColor.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(
-            hasAccess ? Color.green.opacity(0.3) : Color.orange.opacity(0.3), lineWidth: 1))
-        .onAppear { hasAccess = FullDiskAccessChecker.check() }
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(iconColor.opacity(0.3), lineWidth: 1))
+        .onAppear { status = FullDiskAccessChecker.status() }
+    }
+
+    private var iconName: String {
+        switch status {
+        case .granted:
+            return "lock.shield.fill"
+        case .denied:
+            return "lock.open.trianglebadge.exclamationmark"
+        case .undetermined:
+            return "questionmark.shield"
+        }
+    }
+
+    private var iconColor: Color {
+        switch status {
+        case .granted:
+            return .green
+        case .denied:
+            return .orange
+        case .undetermined:
+            return .yellow
+        }
+    }
+
+    private var statusBadgeText: String {
+        switch status {
+        case .granted:
+            return String(localized: "welcome.fda.granted")
+        case .denied:
+            return String(localized: "welcome.fda.denied")
+        case .undetermined:
+            return String(localized: "welcome.fda.unknown")
+        }
+    }
+
+    private var statusBodyText: String {
+        switch status {
+        case .granted:
+            return String(localized: "welcome.fda.granted.body")
+        case .denied:
+            return String(localized: "welcome.fda.body")
+        case .undetermined:
+            return String(localized: "welcome.fda.unknown.body")
+        }
     }
 
     @ViewBuilder

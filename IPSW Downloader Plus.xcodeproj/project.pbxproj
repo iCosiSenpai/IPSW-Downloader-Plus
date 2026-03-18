@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A10TEST32F67565700D4F3C2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 31E2BB232F67565700D4F3C2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 31E2BB2A2F67565700D4F3C2;
+			remoteInfo = "IPSW Downloader Plus";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		31E2BB2B2F67565700D4F3C2 /* IPSW Downloader Plus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "IPSW Downloader Plus.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10TEST12F67565700D4F3C2 /* IPSW Downloader Plus Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IPSW Downloader Plus Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +27,22 @@
 			path = "IPSW Downloader Plus";
 			sourceTree = "<group>";
 		};
+		A10TEST22F67565700D4F3C2 /* IPSW Downloader Plus Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "IPSW Downloader Plus Tests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		31E2BB282F67565700D4F3C2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10TEST42F67565700D4F3C2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				31E2BB2D2F67565700D4F3C2 /* IPSW Downloader Plus */,
+				A10TEST22F67565700D4F3C2 /* IPSW Downloader Plus Tests */,
 				31E2BB2C2F67565700D4F3C2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				31E2BB2B2F67565700D4F3C2 /* IPSW Downloader Plus.app */,
+				A10TEST12F67565700D4F3C2 /* IPSW Downloader Plus Tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,6 +94,29 @@
 			productName = "IPSW Downloader Plus";
 			productReference = 31E2BB2B2F67565700D4F3C2 /* IPSW Downloader Plus.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A10TEST52F67565700D4F3C2 /* IPSW Downloader Plus Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10TESTA2F67565700D4F3C2 /* Build configuration list for PBXNativeTarget "IPSW Downloader Plus Tests" */;
+			buildPhases = (
+				A10TEST62F67565700D4F3C2 /* Sources */,
+				A10TEST42F67565700D4F3C2 /* Frameworks */,
+				A10TEST72F67565700D4F3C2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10TEST92F67565700D4F3C2 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A10TEST22F67565700D4F3C2 /* IPSW Downloader Plus Tests */,
+			);
+			name = "IPSW Downloader Plus Tests";
+			packageProductDependencies = (
+			);
+			productName = "IPSW Downloader Plus Tests";
+			productReference = A10TEST12F67565700D4F3C2 /* IPSW Downloader Plus Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -101,12 +149,20 @@
 			projectRoot = "";
 			targets = (
 				31E2BB2A2F67565700D4F3C2 /* IPSW Downloader Plus */,
+				A10TEST52F67565700D4F3C2 /* IPSW Downloader Plus Tests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		31E2BB292F67565700D4F3C2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10TEST72F67565700D4F3C2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -123,7 +179,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10TEST62F67565700D4F3C2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10TEST92F67565700D4F3C2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 31E2BB2A2F67565700D4F3C2 /* IPSW Downloader Plus */;
+			targetProxy = A10TEST32F67565700D4F3C2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		31E2BB342F67565900D4F3C2 /* Debug */ = {
@@ -254,7 +325,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 6KV8L8WQ9D;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -279,7 +350,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "LupiaeTech.IPSW-Downloader-Plus";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -300,7 +371,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 6KV8L8WQ9D;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -325,7 +396,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "LupiaeTech.IPSW-Downloader-Plus";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -335,6 +406,62 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A10TEST82F67565700D4F3C2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 6KV8L8WQ9D;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "IPSW Downloader Plus Tests";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = "LupiaeTech.IPSW-Downloader-PlusTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IPSW Downloader Plus.app/Contents/MacOS/IPSW Downloader Plus";
+				TEST_TARGET_NAME = "IPSW Downloader Plus";
+			};
+			name = Debug;
+		};
+		A10TESTB2F67565700D4F3C2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 6KV8L8WQ9D;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "IPSW Downloader Plus Tests";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = "LupiaeTech.IPSW-Downloader-PlusTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IPSW Downloader Plus.app/Contents/MacOS/IPSW Downloader Plus";
+				TEST_TARGET_NAME = "IPSW Downloader Plus";
 			};
 			name = Release;
 		};
@@ -355,6 +482,15 @@
 			buildConfigurations = (
 				31E2BB372F67565900D4F3C2 /* Debug */,
 				31E2BB382F67565900D4F3C2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10TESTA2F67565700D4F3C2 /* Build configuration list for PBXNativeTarget "IPSW Downloader Plus Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10TEST82F67565700D4F3C2 /* Debug */,
+				A10TESTB2F67565700D4F3C2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

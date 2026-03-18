@@ -6,6 +6,7 @@
 import Foundation
 import Combine
 import AppKit
+import Darwin
 
 // MARK: - Delete Mode
 
@@ -48,12 +49,18 @@ enum Weekday: Int, CaseIterable, Identifiable {
 final class AppSettings: ObservableObject {
 
     static let shared = AppSettings()
+    private let launchAgentLabel = "com.icosisenpai.ipsw-downloader-plus"
+    private let autoLaunchReportKey = "lastAutoLaunchReport"
 
     // MARK: Onboarding
 
     /// true = mostra la schermata di benvenuto ad ogni avvio (default: true)
     @Published var showWelcomeOnStartup: Bool {
         didSet { UserDefaults.standard.set(showWelcomeOnStartup, forKey: "showWelcomeOnStartup") }
+    }
+
+    @Published var hasCompletedInitialSetup: Bool {
+        didSet { UserDefaults.standard.set(hasCompletedInitialSetup, forKey: "hasCompletedInitialSetup") }
     }
 
     // MARK: Delete Mode
@@ -103,6 +110,14 @@ final class AppSettings: ObservableObject {
 
     /// Eventuale errore nell'impostare la sveglia pmset
     @Published var wakeScheduleError: String? = nil
+    @Published private(set) var launchAgentInstalled: Bool = false
+    @Published private(set) var launchAgentLoaded: Bool = false
+    @Published private(set) var launchAgentError: String? = nil
+    @Published private(set) var lastAutoLaunchReport: AutoLaunchReport? {
+        didSet {
+            persistAutoLaunchReport()
+        }
+    }
 
     // MARK: Download
 
@@ -175,6 +190,7 @@ final class AppSettings: ObservableObject {
 
         // Se la chiave non esiste ancora (primo avvio), il default è true
         showWelcomeOnStartup = ud.object(forKey: "showWelcomeOnStartup") as? Bool ?? true
+        hasCompletedInitialSetup = ud.object(forKey: "hasCompletedInitialSetup") as? Bool ?? false
         deleteMode           = DeleteMode(rawValue: ud.string(forKey: "deleteMode") ?? "") ?? .permanent
         autoLaunchEnabled    = ud.bool(forKey: "autoLaunchEnabled")
         autoLaunchHour       = ud.object(forKey: "autoLaunchHour") as? Int ?? 3
@@ -189,9 +205,15 @@ final class AppSettings: ObservableObject {
 
         let excluded = ud.array(forKey: "excludedProductTypes") as? [String] ?? []
         excludedProductTypes = Set(excluded)
+        if let data = ud.data(forKey: autoLaunchReportKey) {
+            lastAutoLaunchReport = try? JSONDecoder().decode(AutoLaunchReport.self, from: data)
+        } else {
+            lastAutoLaunchReport = nil
+        }
 
         // Legge lo stato attuale della sveglia pmset
         wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
+        refreshLaunchAgentStatus()
     }
 
     // MARK: - LaunchAgent
@@ -201,7 +223,15 @@ final class AppSettings: ObservableObject {
         let libraryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library")
         return libraryURL
             .appendingPathComponent("LaunchAgents")
-            .appendingPathComponent("com.icosisenpai.ipsw-downloader-plus.plist")
+            .appendingPathComponent("\(launchAgentLabel).plist")
+    }
+
+    private var launchAgentDomain: String {
+        "gui/\(getuid())"
+    }
+
+    private var launchAgentServiceIdentifier: String {
+        "\(launchAgentDomain)/\(launchAgentLabel)"
     }
 
     private func updateSchedulingConfiguration() {
@@ -211,6 +241,7 @@ final class AppSettings: ObservableObject {
         }
 
         installLaunchAgent()
+        refreshLaunchAgentStatus()
         if wakeScheduleActive {
             wakeScheduleActive = false
             wakeScheduleError = String(localized: "settings.schedule.wake.needs_update")
@@ -227,6 +258,7 @@ final class AppSettings: ObservableObject {
         }
 
         installLaunchAgent()
+        refreshLaunchAgentStatus()
         let error = WakeScheduler.scheduleWake(
             hour: autoLaunchHour,
             minute: autoLaunchMinute,
@@ -249,6 +281,7 @@ final class AppSettings: ObservableObject {
 
     private func disableScheduling() {
         removeLaunchAgent()
+        refreshLaunchAgentStatus()
         wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
         if wakeScheduleActive {
             wakeScheduleError = String(localized: "settings.schedule.wake.disable_separately")
@@ -281,7 +314,7 @@ final class AppSettings: ObservableObject {
         }
 
         let plist: [String: Any] = [
-            "Label": "com.icosisenpai.ipsw-downloader-plus",
+            "Label": launchAgentLabel,
             "ProgramArguments": [appPath, "--auto-launch"],
             "StartCalendarInterval": calendarIntervals,
             "RunAtLoad": false,
@@ -294,14 +327,16 @@ final class AppSettings: ObservableObject {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
             try data.write(to: plistURL)
-            // Carica/aggiorna il LaunchAgent senza richiedere il reboot
-            _ = try? Process.run(
-                URL(fileURLWithPath: "/bin/launchctl"),
-                arguments: ["load", "-w", plistURL.path]
-            )
+            let bootoutResult = runLaunchctl(arguments: ["bootout", launchAgentServiceIdentifier], ignoreFailure: true)
+            let bootstrapResult = runLaunchctl(arguments: ["bootstrap", launchAgentDomain, plistURL.path], ignoreFailure: false)
+            let enableResult = bootstrapResult == nil
+                ? runLaunchctl(arguments: ["enable", launchAgentServiceIdentifier], ignoreFailure: false)
+                : nil
+            launchAgentError = bootstrapResult ?? enableResult ?? bootoutResult
         } catch {
-            // Logging silenzioso — non critico
+            launchAgentError = error.localizedDescription
         }
+        refreshLaunchAgentStatus()
     }
 
     private func removeLaunchAgent() {
@@ -311,12 +346,10 @@ final class AppSettings: ObservableObject {
 
     private func removeLaunchAgent(at plistURL: URL) {
         if FileManager.default.fileExists(atPath: plistURL.path) {
-            _ = try? Process.run(
-                URL(fileURLWithPath: "/bin/launchctl"),
-                arguments: ["unload", plistURL.path]
-            )
+            launchAgentError = runLaunchctl(arguments: ["bootout", launchAgentServiceIdentifier], ignoreFailure: true)
             try? FileManager.default.removeItem(at: plistURL)
         }
+        refreshLaunchAgentStatus()
     }
 
     // MARK: - Helpers
@@ -362,6 +395,38 @@ final class AppSettings: ObservableObject {
         return String(format: String(localized: "schedule.days"), names, time)
     }
 
+    var launchAgentStatusDescription: String {
+        if let launchAgentError, !launchAgentError.isEmpty {
+            return String(format: String(localized: "settings.schedule.agent.error"), launchAgentError)
+        }
+        if launchAgentLoaded {
+            return String(localized: "settings.schedule.agent.loaded")
+        }
+        if launchAgentInstalled {
+            return String(localized: "settings.schedule.agent.installed")
+        }
+        return String(localized: "settings.schedule.agent.missing")
+    }
+
+    var lastAutoLaunchReportDescription: String? {
+        guard let report = lastAutoLaunchReport else { return nil }
+        return String(
+            format: String(localized: "settings.schedule.report.summary"),
+            report.checkedCount,
+            report.downloadedCount,
+            report.skippedCount,
+            report.failedCount
+        )
+    }
+
+    func recordAutoLaunchReport(_ report: AutoLaunchReport) {
+        lastAutoLaunchReport = report
+    }
+
+    func clearAutoLaunchReport() {
+        lastAutoLaunchReport = nil
+    }
+
     var isUsingCustomDownloadDirectory: Bool {
         !customDownloadDirectoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -400,5 +465,80 @@ final class AppSettings: ObservableObject {
         let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return URL(fileURLWithPath: trimmed, isDirectory: true).standardizedFileURL
+    }
+
+    private func refreshLaunchAgentStatus() {
+        guard let plistURL = launchAgentPlistURL else {
+            launchAgentInstalled = false
+            launchAgentLoaded = false
+            return
+        }
+
+        launchAgentInstalled = FileManager.default.fileExists(atPath: plistURL.path)
+        guard launchAgentInstalled else {
+            launchAgentLoaded = false
+            return
+        }
+
+        let process = Process()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["print", launchAgentServiceIdentifier]
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            launchAgentLoaded = process.terminationStatus == 0
+            if process.terminationStatus == 0 {
+                if launchAgentError?.isEmpty ?? true {
+                    launchAgentError = nil
+                }
+            }
+        } catch {
+            launchAgentLoaded = false
+            launchAgentError = error.localizedDescription
+        }
+    }
+
+    private func runLaunchctl(arguments: [String], ignoreFailure: Bool) -> String? {
+        let process = Process()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = arguments
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus != 0 else { return nil }
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let message = (
+                String(data: errorData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            ).flatMap { $0.isEmpty ? nil : $0 }
+            ?? (
+                String(data: outputData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            ).flatMap { $0.isEmpty ? nil : $0 }
+            return ignoreFailure ? nil : (message?.isEmpty == false ? message : String(localized: "settings.schedule.agent.command_failed"))
+        } catch {
+            return ignoreFailure ? nil : error.localizedDescription
+        }
+    }
+
+    private func persistAutoLaunchReport() {
+        let defaults = UserDefaults.standard
+        guard let report = lastAutoLaunchReport else {
+            defaults.removeObject(forKey: autoLaunchReportKey)
+            return
+        }
+        guard let data = try? JSONEncoder().encode(report) else { return }
+        defaults.set(data, forKey: autoLaunchReportKey)
     }
 }

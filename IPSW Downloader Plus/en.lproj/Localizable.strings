@@ -13,6 +13,7 @@
 "sidebar.sort.version" = "Firmware version";
 "sidebar.sort.release_date" = "Firmware date";
 "sidebar.sort.model_release" = "Model release date";
+"sidebar.toggle.help" = "Show or hide the sidebar";
 "sidebar.toolbar.download_folder" = "Download folder";
 "sidebar.toolbar.download_folder.help" = "Open IPSW folder in Finder";
 "sidebar.toolbar.template" = "Selection template";
@@ -26,11 +27,15 @@
 /* ContentView — Detail */
 "detail.empty" = "Select one or more devices from the list";
 "detail.header.selected" = "%lld device(s) selected";
+"detail.header.status" = "%1$lld ready · %2$lld active · %3$lld completed · %4$lld issues";
 "detail.download_all" = "Download all";
+"detail.navigation.title" = "Downloads";
+"detail.open_folder" = "Open folder";
 "detail.section.active" = "Active";
 "detail.section.ready" = "Ready";
 "detail.section.completed" = "Completed";
 "detail.section.failed" = "Issues";
+"detail.section.activity" = "Recent activity";
 
 /* ContentView — Download card */
 "download.cancel" = "Cancel download";
@@ -45,7 +50,11 @@
 "download.action.cancel" = "Cancel";
 "download.action.verifying" = "Verifying…";
 "download.action.redownload" = "Re-download";
+"download.attempt" = "Attempt %1$lld/%2$lld";
+"download.eta" = "ETA %@";
 "download.local_file_missing" = "The local firmware was moved or deleted.";
+"activity.download_paused" = "Download paused. You can resume it later.";
+"activity.download_resuming" = "Resuming download from saved progress.";
 "download.template.error" = "Unable to determine the latest iOS version: %@";
 "footer.donate" = "a donation to support my work";
 "footer.made_with" = "Made with";
@@ -53,14 +62,22 @@
 
 /* WelcomeView */
 "welcome.title" = "Welcome to IPSW Downloader Plus!";
-"welcome.credits.by" = "by Pico Mitchell (Free Geek)";
+"welcome.hero.body" = "Keep Apple firmware folders updated with a faster, safer batch workflow.";
+"welcome.card.downloads.title" = "Batch downloads";
+"welcome.card.downloads.body" = "Download the latest signed IPSW files for many devices with queueing, retry and resume support.";
+"welcome.card.setup.title" = "Guided setup";
+"welcome.card.setup.body" = "Right after this welcome screen, the app opens a dedicated setup flow for permissions and destination folders.";
+"welcome.flow.note" = "Go ahead for the next setup steps.";
 "welcome.description1" = "IPSW Downloader Plus batch-downloads the latest IPSW firmware from Apple and places them in the correct iTunes Software Updates or Apple Configurator Firmware folders, so they are automatically detected by Finder and/or Apple Configurator.";
 "welcome.description2" = "You can configure which firmware to download by device type: iPhone, iPad, iPod touch, Apple TV, HomePod mini, Apple Vision, T2 Mac (iBridge) and Apple Silicon Mac. You can also schedule an automatic launch to keep all your IPSW firmware up to date.";
 "welcome.fda.title" = "Full Disk Access";
 "welcome.fda.body" = "To manage the Apple Configurator Firmware folder, enable Full Disk Access in System Settings → Privacy & Security → Full Disk Access.";
 "welcome.fda.button" = "Open Privacy & Security…";
 "welcome.fda.granted" = "Granted";
+"welcome.fda.denied" = "Missing";
+"welcome.fda.unknown" = "Not verified";
 "welcome.fda.granted.body" = "Full Disk Access is active. IPSW Downloader Plus can write to all required folders.";
+"welcome.fda.unknown.body" = "macOS did not expose enough protected locations to verify Full Disk Access automatically. You can still continue, but default Apple folders may fail until the permission is granted.";
 "welcome.fda.recheck" = "Recheck permission";
 "welcome.fda.step1" = "Open System Settings → Privacy & Security → Full Disk Access";
 "welcome.fda.step2" = "Click the + button and add IPSW Downloader Plus";
@@ -101,6 +118,7 @@
 "welcome.custom_folder.warning_active" = "A custom destination is already active: %@. Downloads will go there instead of the default Apple folders.";
 "welcome.cta.show_on_startup" = "Show this screen on every launch";
 "welcome.cta.settings" = "Configure settings";
+"welcome.cta.continue" = "Continue";
 "welcome.cta.back" = "Back";
 "welcome.cta.next" = "Next";
 "welcome.cta.close" = "Close";
@@ -114,6 +132,13 @@
 "settings.tab.devices" = "Devices";
 "settings.general.startup.title" = "Startup";
 "settings.general.startup.show_welcome" = "Show welcome screen on launch";
+"settings.general.startup.open_welcome" = "Show welcome now";
+"settings.general.startup.open_setup" = "Open setup again";
+"settings.general.startup.setup_completed" = "Initial setup is already complete. That's why it no longer appears automatically after the welcome screen.";
+"settings.general.startup.setup_pending" = "Initial setup is still pending and will appear after the welcome flow.";
+"settings.footer.version" = "Version %@ (%@)";
+"settings.footer.github" = "GitHub";
+"settings.footer.support" = "Donate";
 "settings.general.obsolete.title" = "Obsolete firmware";
 "settings.general.obsolete.footer" = "A firmware is obsolete when Apple stops signing it or when a newer version has been downloaded.";
 "settings.general.folders.title" = "Destination folders";
@@ -144,6 +169,21 @@
 "settings.schedule.autolaunch.title" = "Automatic launch";
 "settings.schedule.autolaunch.toggle" = "Enable automatic scheduling";
 "settings.schedule.autolaunch.footer" = "Installs a LaunchAgent in ~/Library/LaunchAgents that launches the app at the chosen time to download updated firmware.";
+"settings.schedule.agent.title" = "LaunchAgent";
+"settings.schedule.agent.loaded" = "LaunchAgent installed and loaded.";
+"settings.schedule.agent.installed" = "LaunchAgent plist present, but not confirmed as loaded.";
+"settings.schedule.agent.missing" = "LaunchAgent not installed yet.";
+"settings.schedule.agent.error" = "LaunchAgent error: %@";
+"settings.schedule.agent.footer" = "This is the macOS agent responsible for launching the app on schedule.";
+"settings.schedule.agent.command_failed" = "launchctl failed to update the LaunchAgent.";
+"settings.schedule.report.title" = "Last Scheduled Run";
+"settings.schedule.report.summary" = "%lld checked, %lld downloaded, %lld skipped, %lld failed.";
+"settings.schedule.report.last_run" = "Last run: %@";
+"settings.schedule.report.checked" = "Checked";
+"settings.schedule.report.downloaded" = "Downloaded";
+"settings.schedule.report.skipped" = "Skipped";
+"settings.schedule.report.failed" = "Failed";
+"settings.schedule.report.clear" = "Clear report";
 "settings.schedule.workflow.title" = "How It Works";
 "settings.schedule.workflow.body" = "Automatic launch and Mac wake are separate. Turning on scheduling saves the app schedule immediately. Mac wake requires an extra admin-authorized step.";
 "settings.schedule.workflow.note" = "If you change time or days after configuring Mac wake, update the wake schedule again.";
@@ -178,9 +218,52 @@
 "settings.schedule.wake.enable_first" = "Enable automatic scheduling first.";
 "settings.schedule.wake.disable_separately" = "Automatic scheduling was turned off. Mac Wake may still be active and can be disabled separately below.";
 "settings.schedule.wake.footer" = "Uses 'pmset repeat wakeorpoweron' to wake or power on the Mac before the scheduled launch. Requires admin password once.";
+"setup.open" = "Open setup";
+"setup.title" = "Initial setup";
+"setup.subtitle" = "Permissions, folders and first-run choices in one guided flow.";
+"setup.step.permissions" = "Permissions";
+"setup.step.folders" = "Folders";
+"setup.step.finish" = "Finish";
+"setup.permissions.body" = "If you want to use Apple's default firmware folders, Full Disk Access is strongly recommended. You can also use a custom destination if you prefer.";
+"setup.permissions.banner" = "Permission status";
+"setup.folders.body" = "Choose whether to keep Apple's default folder layout or route everything into a custom root folder managed by the app.";
+"setup.folders.banner" = "Current destination";
+"setup.finish.title" = "Setup complete";
+"setup.finish.body" = "You can change any of these choices later from Settings. The app is ready to scan devices and manage downloads.";
+"setup.finish.banner" = "Next step";
+"setup.finish.ready" = "The app can now load devices, restore interrupted downloads and start new batches immediately.";
+"setup.summary.permission" = "Full Disk Access";
+"setup.summary.permission_denied" = "Still missing";
+"setup.summary.permission_unknown" = "Not verified automatically";
+"setup.summary.destination" = "Destination";
+"setup.summary.destination_default" = "Apple default folders";
+"setup.summary.welcome" = "Show welcome at launch";
+"setup.summary.enabled" = "Enabled";
+"setup.summary.disabled" = "Disabled";
+"setup.open.settings" = "Open settings";
+"setup.finish" = "Open app";
 
 /* IPSWViewModel */
 "error.no_signed_firmware" = "No signed firmware available";
 "error.full_disk_access_required" = "Full Disk Access is required to write IPSW files into your user Library folders.";
 "template.error.latest_ios" = "Unable to determine the latest iOS version: %@";
+"activity.devices_loaded.title" = "Device catalog updated";
+"activity.devices_loaded.message" = "%lld devices loaded from the API.";
+"activity.devices_failed.title" = "Device catalog update failed";
+"activity.download_queued" = "Queued until a download slot becomes available.";
+"activity.download_start" = "Starting download attempt %1$lld/%2$lld.";
+"activity.download_retry" = "Retry %1$lld/%2$lld in %3$llds due to: %@";
+"activity.download_completed" = "Downloaded %@ (%@) successfully.";
+"activity.download_already_present" = "Firmware %@ (%@) is already present locally.";
+"activity.download_cancelled" = "Download cancelled by the user.";
+"activity.download_removed" = "Removed from the current selection and task list.";
+"activity.download_restored" = "Restored from the previous session and queued again.";
+"activity.auto_launch.start.title" = "Scheduled run started";
+"activity.auto_launch.start.message" = "Checking %lld devices in the current automatic selection.";
+"activity.auto_launch.no_signed" = "No signed firmware currently available.";
+"activity.auto_launch.already_downloaded" = "Firmware %@ (%@) is already available locally.";
+"activity.auto_launch.download_started" = "Scheduled run started downloading %@ (%@).";
+"activity.auto_launch.failed" = "Scheduled run failed: %@";
+"activity.auto_launch.summary.title" = "Scheduled run finished";
+"activity.auto_launch.summary.message" = "%lld checked, %lld downloaded, %lld skipped, %lld failed.";
 "welcome.title.developer" = "Developed by iCosiSenpai";

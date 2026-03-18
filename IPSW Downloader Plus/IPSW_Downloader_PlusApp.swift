@@ -7,34 +7,38 @@ import SwiftUI
 import UserNotifications
 import AppKit
 
-/// View radice che gestisce la visibilità dello sheet di benvenuto.
-/// Usa uno @State locale per evitare che il binding a showWelcomeOnStartup
-/// riapra lo sheet immediatamente dopo la chiusura.
+extension Notification.Name {
+    static let showWelcomeFlow = Notification.Name("showWelcomeFlow")
+    static let showInitialSetupFlow = Notification.Name("showInitialSetupFlow")
+}
+
+/// View radice che gestisce l'onboarding iniziale e l'accesso alle cartelle protette.
 struct RootView: View {
     let viewModel: IPSWViewModel
     let isAutoLaunch: Bool
 
     @ObservedObject private var settings = AppSettings.shared
 
-    // Stato locale per la visibilità dello sheet — inizializzato da settings ma non bindato direttamente.
-    // In questo modo la chiusura del sheet non viene "riaperta" dal publisher di settings.
-    // In auto-launch mode il benvenuto viene sempre soppresso.
     @State private var isShowingWelcome: Bool
-    @State private var hasFullDiskAccess: Bool
+    @State private var isShowingSetup: Bool
+    @State private var fullDiskAccessStatus: FullDiskAccessStatus
 
     init(viewModel: IPSWViewModel, isAutoLaunch: Bool) {
         self.viewModel = viewModel
         self.isAutoLaunch = isAutoLaunch
         _isShowingWelcome = State(initialValue: isAutoLaunch ? false : AppSettings.shared.showWelcomeOnStartup)
-        _hasFullDiskAccess = State(initialValue: FullDiskAccessChecker.check())
+        _isShowingSetup = State(initialValue: isAutoLaunch ? false : !AppSettings.shared.hasCompletedInitialSetup && !AppSettings.shared.showWelcomeOnStartup)
+        _fullDiskAccessStatus = State(initialValue: FullDiskAccessChecker.status())
     }
 
     var body: some View {
         Group {
-            if hasFullDiskAccess || settings.isUsingCustomDownloadDirectory {
-                ContentView(viewModel: viewModel)
+            if requiresFullDiskAccessGate {
+                FullDiskAccessGateView(fullDiskAccessStatus: $fullDiskAccessStatus) {
+                    isShowingSetup = true
+                }
             } else {
-                FullDiskAccessGateView(hasFullDiskAccess: $hasFullDiskAccess)
+                ContentView(viewModel: viewModel)
             }
         }
         .task {
@@ -42,31 +46,61 @@ struct RootView: View {
             _ = try? await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])
             if isAutoLaunch {
-                guard hasFullDiskAccess || settings.isUsingCustomDownloadDirectory else {
+                guard fullDiskAccessStatus != .denied || settings.isUsingCustomDownloadDirectory else {
                     NSApplication.shared.terminate(nil)
                     return
                 }
                 await viewModel.runAutoLaunchUpdate()
             }
         }
-        .sheet(isPresented: Binding(
-            get: { (hasFullDiskAccess || settings.isUsingCustomDownloadDirectory) && isShowingWelcome },
-            set: { isShowingWelcome = $0 }
-        )) {
-            WelcomeView()
+        .sheet(isPresented: $isShowingWelcome, onDismiss: {
+            if !isAutoLaunch && !settings.hasCompletedInitialSetup {
+                isShowingSetup = true
+            }
+        }) {
+            WelcomeView {
+                isShowingWelcome = false
+                if !settings.hasCompletedInitialSetup {
+                    isShowingSetup = true
+                }
+            }
                 .background(WindowDraggableBackground())
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            hasFullDiskAccess = FullDiskAccessChecker.check()
+        .sheet(isPresented: $isShowingSetup) {
+            InitialSetupView(fullDiskAccessStatus: $fullDiskAccessStatus) {
+                settings.hasCompletedInitialSetup = true
+                isShowingSetup = false
+            }
+            .background(WindowDraggableBackground())
         }
-        // Il toggle "non mostrare più" NON chiude il benvenuto:
-        // la finestra si chiude solo con il pulsante Chiudi.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            fullDiskAccessStatus = FullDiskAccessChecker.status()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showWelcomeFlow)) { _ in
+            guard !isAutoLaunch else { return }
+            isShowingSetup = false
+            isShowingWelcome = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showInitialSetupFlow)) { _ in
+            guard !isAutoLaunch else { return }
+            fullDiskAccessStatus = FullDiskAccessChecker.status()
+            isShowingWelcome = false
+            isShowingSetup = true
+        }
+    }
+
+    private var requiresFullDiskAccessGate: Bool {
+        !isShowingWelcome &&
+        !isShowingSetup &&
+        !settings.isUsingCustomDownloadDirectory &&
+        fullDiskAccessStatus == .denied
     }
 }
 
 private struct FullDiskAccessGateView: View {
-    @Binding var hasFullDiskAccess: Bool
+    @Binding var fullDiskAccessStatus: FullDiskAccessStatus
     @ObservedObject private var settings = AppSettings.shared
+    let openSetup: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -89,7 +123,7 @@ private struct FullDiskAccessGateView: View {
                 Spacer()
 
                 Button(String(localized: "welcome.fda.recheck")) {
-                    hasFullDiskAccess = FullDiskAccessChecker.check()
+                    fullDiskAccessStatus = FullDiskAccessChecker.status()
                 }
                 .buttonStyle(.bordered)
 
@@ -102,6 +136,11 @@ private struct FullDiskAccessGateView: View {
                     FullDiskAccessChecker.openPrivacySettings()
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button(String(localized: "setup.open")) {
+                    openSetup()
+                }
+                .buttonStyle(.bordered)
             }
         }
         .padding(28)

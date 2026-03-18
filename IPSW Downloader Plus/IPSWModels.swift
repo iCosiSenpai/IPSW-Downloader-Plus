@@ -5,9 +5,96 @@
 
 import Foundation
 
+struct DownloadProgressDetails: Equatable, Codable {
+    let fractionCompleted: Double
+    let bytesWritten: Int64
+    let totalBytesExpected: Int64
+    let bytesPerSecond: Double
+
+    var percentText: String {
+        "\(Int(fractionCompleted * 100))%"
+    }
+
+    var transferredText: String {
+        "\(ByteCountFormatter.string(fromByteCount: bytesWritten, countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: totalBytesExpected, countStyle: .file))"
+    }
+
+    var speedText: String {
+        guard bytesPerSecond > 0 else { return "—" }
+        let rate = ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file)
+        return "\(rate)/s"
+    }
+
+    var etaText: String {
+        guard bytesPerSecond > 0, totalBytesExpected > bytesWritten else { return "—" }
+        let secondsRemaining = Double(totalBytesExpected - bytesWritten) / bytesPerSecond
+        guard secondsRemaining.isFinite, secondsRemaining > 0 else { return "—" }
+
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = secondsRemaining >= 3600 ? [.hour, .minute] : [.minute, .second]
+        formatter.unitsStyle = .abbreviated
+        return formatter.string(from: secondsRemaining) ?? "—"
+    }
+}
+
+enum ActivityLogKind: String, Codable {
+    case info
+    case success
+    case warning
+    case error
+
+    var systemImage: String {
+        switch self {
+        case .info:
+            return "info.circle.fill"
+        case .success:
+            return "checkmark.circle.fill"
+        case .warning:
+            return "exclamationmark.triangle.fill"
+        case .error:
+            return "xmark.octagon.fill"
+        }
+    }
+}
+
+struct ActivityLogEntry: Identifiable, Equatable, Codable {
+    let id: UUID
+    let timestamp: Date
+    let kind: ActivityLogKind
+    let deviceIdentifier: String?
+    let title: String
+    let message: String
+
+    init(id: UUID = UUID(), timestamp: Date, kind: ActivityLogKind, deviceIdentifier: String?, title: String, message: String) {
+        self.id = id
+        self.timestamp = timestamp
+        self.kind = kind
+        self.deviceIdentifier = deviceIdentifier
+        self.title = title
+        self.message = message
+    }
+}
+
+struct AutoLaunchReport: Equatable, Codable {
+    let startedAt: Date
+    let finishedAt: Date
+    let checkedCount: Int
+    let downloadedCount: Int
+    let skippedCount: Int
+    let failedCount: Int
+
+    var hadFailures: Bool {
+        failedCount > 0
+    }
+
+    var completionKind: ActivityLogKind {
+        hadFailures ? .warning : .success
+    }
+}
+
 // MARK: - Device
 
-struct IPSWDevice: Decodable, Identifiable, Hashable {
+struct IPSWDevice: Codable, Identifiable, Hashable {
     let name: String
     let identifier: String
     let firmwares: [IPSWFirmware]?
@@ -58,7 +145,7 @@ struct IPSWDevice: Decodable, Identifiable, Hashable {
 
 // MARK: - Firmware
 
-struct IPSWFirmware: Decodable, Identifiable {
+struct IPSWFirmware: Codable, Identifiable {
     let identifier: String
     let version: String
     let buildid: String
@@ -115,6 +202,19 @@ struct IPSWFirmware: Decodable, Identifiable {
         signed      = try c.decode(Bool.self,     forKey: .signed)
         sha1   = try c.decodeIfPresent(String.self, forKey: .sha1)
             ?? c.decodeIfPresent(String.self, forKey: .sha1sum)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(identifier, forKey: .identifier)
+        try container.encode(version, forKey: .version)
+        try container.encode(buildid, forKey: .buildid)
+        try container.encodeIfPresent(sha1, forKey: .sha1)
+        try container.encodeIfPresent(filesize, forKey: .filesize)
+        try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(filename, forKey: .filename)
+        try container.encodeIfPresent(releasedate, forKey: .releasedate)
+        try container.encode(signed, forKey: .signed)
     }
 
     var downloadURL: URL? { URL(string: url) }
@@ -216,13 +316,29 @@ enum FirmwareDateParser {
 
 // MARK: - Download State
 
-enum DownloadState: Equatable {
+enum DownloadState: Equatable, Codable {
     case idle
     case queued
     case downloading(progress: Double)
     case verifying           // SHA1 in corso (post-download)
     case completed(url: URL)
     case failed(error: String)
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case progress
+        case url
+        case error
+    }
+
+    private enum Kind: String, Codable {
+        case idle
+        case queued
+        case downloading
+        case verifying
+        case completed
+        case failed
+    }
 
     static func == (lhs: DownloadState, rhs: DownloadState) -> Bool {
         switch (lhs, rhs) {
@@ -233,6 +349,46 @@ enum DownloadState: Equatable {
         case (.completed(let a), .completed(let b)): return a == b
         case (.failed(let a), .failed(let b)): return a == b
         default: return false
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(Kind.self, forKey: .kind)
+        switch kind {
+        case .idle:
+            self = .idle
+        case .queued:
+            self = .queued
+        case .downloading:
+            self = .downloading(progress: try container.decode(Double.self, forKey: .progress))
+        case .verifying:
+            self = .verifying
+        case .completed:
+            self = .completed(url: try container.decode(URL.self, forKey: .url))
+        case .failed:
+            self = .failed(error: try container.decode(String.self, forKey: .error))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .idle:
+            try container.encode(Kind.idle, forKey: .kind)
+        case .queued:
+            try container.encode(Kind.queued, forKey: .kind)
+        case .downloading(let progress):
+            try container.encode(Kind.downloading, forKey: .kind)
+            try container.encode(progress, forKey: .progress)
+        case .verifying:
+            try container.encode(Kind.verifying, forKey: .kind)
+        case .completed(let url):
+            try container.encode(Kind.completed, forKey: .kind)
+            try container.encode(url, forKey: .url)
+        case .failed(let error):
+            try container.encode(Kind.failed, forKey: .kind)
+            try container.encode(error, forKey: .error)
         }
     }
 }
@@ -266,9 +422,20 @@ extension Sequence where Element == IPSWFirmware {
 
 // MARK: - Download Task Info
 
-struct DeviceDownloadTask: Identifiable {
+struct DeviceDownloadTask: Identifiable, Codable {
     let id: String  // device identifier
     var device: IPSWDevice
     var firmware: IPSWFirmware
     var state: DownloadState = .idle
+    var progressDetails: DownloadProgressDetails? = nil
+    var attemptCount: Int = 0
+    var lastErrorDescription: String? = nil
+}
+
+struct PersistedAppState: Codable {
+    let selectedDeviceIDs: Set<String>
+    let downloadTasks: [String: DeviceDownloadTask]
+    let pendingDownloadQueue: [String]
+    let activityLog: [ActivityLogEntry]
+    let resumeDataStore: [String: Data]
 }
