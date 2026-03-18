@@ -72,9 +72,10 @@ They are intentionally separate in the UI:
 
 Current release: [v1.0.0](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/tag/v1.0.0)
 
+DMG download: [IPSW Downloader Plus.dmg](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/download/v1.0.0/IPSW%20Downloader%20Plus.dmg)
+
 ## Support
 
 If you want to support development:
 
 - PayPal: [paypal.me/AlessioCosi](https://paypal.me/AlessioCosi)
-
