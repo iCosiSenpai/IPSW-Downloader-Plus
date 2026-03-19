@@ -16,7 +16,9 @@ final class IPSWViewModel: ObservableObject {
 
     @Published var devices: [IPSWDevice] = []
     @Published var selectedDeviceIDs: Set<String> = []
+    @Published var selectedManagedDownloadIDs: Set<String> = []
     @Published var downloadTasks: [String: DeviceDownloadTask] = [:]
+    @Published private(set) var downloadedFirmware: [LocalFirmwareRecord] = []
     @Published var isLoadingDevices = false
     @Published var deviceLoadError: String? = nil
     @Published var searchText = ""
@@ -140,6 +142,20 @@ final class IPSWViewModel: ObservableObject {
 
     var recentActivityEntries: [ActivityLogEntry] {
         Array(activityLog.prefix(30))
+    }
+
+    var managedDownloadDevices: [IPSWDevice] {
+        downloadTasks.values
+            .filter { task in
+                switch task.state {
+                case .queued, .paused, .downloading, .verifying:
+                    return true
+                default:
+                    return false
+                }
+            }
+            .map(\.device)
+            .sorted { $0.name < $1.name }
     }
 
     // MARK: - Load Devices
@@ -313,6 +329,18 @@ final class IPSWViewModel: ObservableObject {
         scheduleDownload(for: device)
     }
 
+    func toggleManagedDownloadSelection(_ device: IPSWDevice) {
+        if selectedManagedDownloadIDs.contains(device.identifier) {
+            selectedManagedDownloadIDs.remove(device.identifier)
+        } else {
+            selectedManagedDownloadIDs.insert(device.identifier)
+        }
+    }
+
+    func isManagedDownloadSelected(_ device: IPSWDevice) -> Bool {
+        selectedManagedDownloadIDs.contains(device.identifier)
+    }
+
     private func scheduleDownload(for device: IPSWDevice) {
         guard settings.isUsingCustomDownloadDirectory || FullDiskAccessChecker.check() else {
             var task = downloadTasks[device.identifier] ?? DeviceDownloadTask(
@@ -423,6 +451,7 @@ final class IPSWViewModel: ObservableObject {
                     message: String(format: String(localized: "activity.download_already_present"), firmware.version, firmware.buildid)
                 )
                 finishActiveWork(for: device.identifier)
+                startNextQueuedDownloadIfPossible()
                 return
             }
 
@@ -525,9 +554,18 @@ final class IPSWViewModel: ObservableObject {
         }
     }
 
-    func cancelDownload(for device: IPSWDevice) {
+    func pauseDownload(for device: IPSWDevice) {
         if let queuedIndex = pendingDownloadQueue.firstIndex(of: device.identifier) {
             pendingDownloadQueue.remove(at: queuedIndex)
+            downloadTasks[device.identifier]?.state = .paused
+            downloadTasks[device.identifier]?.progressDetails = nil
+            appendActivity(
+                kind: .warning,
+                deviceIdentifier: device.identifier,
+                title: device.name,
+                message: String(localized: "activity.download_paused")
+            )
+            return
         }
         if let downloader = activeDownloaders[device.identifier] {
             downloadTaskHandles[device.identifier]?.cancel()
@@ -536,6 +574,7 @@ final class IPSWViewModel: ObservableObject {
                     guard let self else { return }
                     if let resumeData, !resumeData.isEmpty {
                         self.resumeDataStore[device.identifier] = resumeData
+                        self.downloadTasks[device.identifier]?.state = .paused
                         self.appendActivity(
                             kind: .warning,
                             deviceIdentifier: device.identifier,
@@ -544,15 +583,15 @@ final class IPSWViewModel: ObservableObject {
                         )
                     } else {
                         self.resumeDataStore.removeValue(forKey: device.identifier)
+                        self.downloadTasks[device.identifier]?.state = .failed(error: String(localized: "download.pause_unavailable"))
                         self.appendActivity(
-                            kind: .warning,
+                            kind: .error,
                             deviceIdentifier: device.identifier,
                             title: device.name,
-                            message: String(localized: "activity.download_cancelled")
+                            message: String(localized: "download.pause_unavailable")
                         )
                     }
                     self.finishActiveWork(for: device.identifier)
-                    self.downloadTasks[device.identifier]?.state = .idle
                     self.downloadTasks[device.identifier]?.progressDetails = nil
                     self.startNextQueuedDownloadIfPossible()
                 }
@@ -560,12 +599,36 @@ final class IPSWViewModel: ObservableObject {
             return
         }
 
-        // Annulla il Task intero (include fetch API + download URLSession)
+        // Se siamo ancora nel fetch API, il massimo che possiamo fare e' mettere in pausa la richiesta logica.
         downloadTaskHandles[device.identifier]?.cancel()
         activeDownloaders[device.identifier]?.cancel()
         finishActiveWork(for: device.identifier)
+        downloadTasks[device.identifier]?.state = .paused
+        downloadTasks[device.identifier]?.progressDetails = nil
+        appendActivity(
+            kind: .warning,
+            deviceIdentifier: device.identifier,
+            title: device.name,
+            message: String(localized: "activity.download_paused")
+        )
+        startNextQueuedDownloadIfPossible()
+    }
+
+    func resumeDownload(for device: IPSWDevice) {
+        scheduleDownload(for: device)
+    }
+
+    func cancelDownload(for device: IPSWDevice) {
+        if let queuedIndex = pendingDownloadQueue.firstIndex(of: device.identifier) {
+            pendingDownloadQueue.remove(at: queuedIndex)
+        }
+        downloadTaskHandles[device.identifier]?.cancel()
+        activeDownloaders[device.identifier]?.cancel()
+        finishActiveWork(for: device.identifier)
+        resumeDataStore.removeValue(forKey: device.identifier)
         downloadTasks[device.identifier]?.state = .idle
         downloadTasks[device.identifier]?.progressDetails = nil
+        selectedManagedDownloadIDs.remove(device.identifier)
         appendActivity(
             kind: .warning,
             deviceIdentifier: device.identifier,
@@ -602,6 +665,35 @@ final class IPSWViewModel: ObservableObject {
             guard index < ordered.count else { continue }
             removeDevice(ordered[index])
         }
+    }
+
+    func pauseSelectedManagedDownloads() {
+        let devicesToPause = managedDownloadDevices.filter { selectedManagedDownloadIDs.contains($0.identifier) }
+        for device in devicesToPause {
+            pauseDownload(for: device)
+        }
+    }
+
+    func cancelSelectedManagedDownloads() {
+        let devicesToCancel = managedDownloadDevices.filter { selectedManagedDownloadIDs.contains($0.identifier) }
+        for device in devicesToCancel {
+            cancelDownload(for: device)
+        }
+        selectedManagedDownloadIDs.subtract(devicesToCancel.map(\.identifier))
+    }
+
+    func pauseAllManagedDownloads() {
+        for device in managedDownloadDevices {
+            pauseDownload(for: device)
+        }
+        selectedManagedDownloadIDs.removeAll()
+    }
+
+    func cancelAllManagedDownloads() {
+        for device in managedDownloadDevices {
+            cancelDownload(for: device)
+        }
+        selectedManagedDownloadIDs.removeAll()
     }
 
     // MARK: - Local File Helpers
@@ -1058,6 +1150,8 @@ final class IPSWViewModel: ObservableObject {
                 downloadTasks[identifier]?.state = .failed(error: String(localized: "download.local_file_missing"))
             }
         }
+
+        downloadedFirmware = scanLocalFirmware()
     }
 
     private func restartDirectoryMonitoring() {
@@ -1223,6 +1317,58 @@ final class IPSWViewModel: ObservableObject {
         case (nil, nil):
             let result = fallbackLeft.localizedCaseInsensitiveCompare(fallbackRight)
             return ascending ? result == .orderedAscending : result == .orderedDescending
+        }
+    }
+
+    private func scanLocalFirmware() -> [LocalFirmwareRecord] {
+        let fileManager = FileManager.default
+        let candidateDevices = devices
+        var records: [LocalFirmwareRecord] = []
+
+        for directory in DeviceCategory.monitoredDirectories() {
+            guard let enumerator = fileManager.enumerator(
+                at: directory,
+                includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            ) else {
+                continue
+            }
+
+            for case let fileURL as URL in enumerator {
+                guard fileURL.pathExtension.lowercased() == "ipsw" else { continue }
+                guard
+                    let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]),
+                    values.isRegularFile == true
+                else {
+                    continue
+                }
+
+                let fileName = fileURL.lastPathComponent
+                let matchedDevice = candidateDevices.first { device in
+                    fileName.localizedCaseInsensitiveContains(device.identifier)
+                }
+
+                records.append(
+                    LocalFirmwareRecord(
+                        id: fileURL.path,
+                        fileName: fileName,
+                        deviceIdentifier: matchedDevice?.identifier,
+                        deviceName: matchedDevice?.name,
+                        location: fileURL,
+                        fileSize: Int64(values.fileSize ?? 0),
+                        modifiedAt: values.contentModificationDate
+                    )
+                )
+            }
+        }
+
+        return records.sorted { lhs, rhs in
+            switch (lhs.modifiedAt, rhs.modifiedAt) {
+            case let (left?, right?) where left != right:
+                return left > right
+            default:
+                return lhs.fileName.localizedCaseInsensitiveCompare(rhs.fileName) == .orderedAscending
+            }
         }
     }
 }

@@ -319,6 +319,7 @@ enum FirmwareDateParser {
 enum DownloadState: Equatable, Codable {
     case idle
     case queued
+    case paused
     case downloading(progress: Double)
     case verifying           // SHA1 in corso (post-download)
     case completed(url: URL)
@@ -334,6 +335,7 @@ enum DownloadState: Equatable, Codable {
     private enum Kind: String, Codable {
         case idle
         case queued
+        case paused
         case downloading
         case verifying
         case completed
@@ -344,6 +346,7 @@ enum DownloadState: Equatable, Codable {
         switch (lhs, rhs) {
         case (.idle, .idle): return true
         case (.queued, .queued): return true
+        case (.paused, .paused): return true
         case (.verifying, .verifying): return true
         case (.downloading(let a), .downloading(let b)): return a == b
         case (.completed(let a), .completed(let b)): return a == b
@@ -360,6 +363,8 @@ enum DownloadState: Equatable, Codable {
             self = .idle
         case .queued:
             self = .queued
+        case .paused:
+            self = .paused
         case .downloading:
             self = .downloading(progress: try container.decode(Double.self, forKey: .progress))
         case .verifying:
@@ -378,6 +383,8 @@ enum DownloadState: Equatable, Codable {
             try container.encode(Kind.idle, forKey: .kind)
         case .queued:
             try container.encode(Kind.queued, forKey: .kind)
+        case .paused:
+            try container.encode(Kind.paused, forKey: .kind)
         case .downloading(let progress):
             try container.encode(Kind.downloading, forKey: .kind)
             try container.encode(progress, forKey: .progress)
@@ -430,6 +437,34 @@ struct DeviceDownloadTask: Identifiable, Codable {
     var progressDetails: DownloadProgressDetails? = nil
     var attemptCount: Int = 0
     var lastErrorDescription: String? = nil
+}
+
+struct LocalFirmwareRecord: Identifiable, Equatable {
+    let id: String
+    let fileName: String
+    let deviceIdentifier: String?
+    let deviceName: String?
+    let location: URL
+    let fileSize: Int64
+    let modifiedAt: Date?
+
+    var title: String {
+        deviceName ?? deviceIdentifier ?? fileName
+    }
+
+    var subtitle: String {
+        if let deviceIdentifier, let deviceName {
+            return "\(deviceName) • \(deviceIdentifier)"
+        }
+        if let deviceIdentifier {
+            return deviceIdentifier
+        }
+        return fileName
+    }
+
+    var sizeText: String {
+        ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+    }
 }
 
 struct PersistedAppState: Codable {
