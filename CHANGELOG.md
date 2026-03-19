@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.1] - 2026-03-19
+
+### Changed
+
+- Updated app version to `1.2.1`.
+- Updated README release information for GitHub release `v1.2.1`.
+- Updated the scheduled auto-download flow so it targets the latest iOS release and only the supported iPhone models returned by the API.
+
 ## [1.2.0] - 2026-03-19
 
 ### Added

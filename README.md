@@ -75,9 +75,9 @@ They are intentionally separate in the UI:
 
 ## Release
 
-Current release: [v1.2.0](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/tag/v1.2.0)
+Current release: [v1.2.1](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/tag/v1.2.1)
 
-DMG download: [IPSW Downloader Plus 1.2.0.dmg](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/download/v1.2.0/IPSW%20Downloader%20Plus%201.2.0.dmg)
+DMG download: [IPSW Downloader Plus 1.2.1.dmg](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/download/v1.2.1/IPSW%20Downloader%20Plus%201.2.1.dmg)
 
 ## Support
 

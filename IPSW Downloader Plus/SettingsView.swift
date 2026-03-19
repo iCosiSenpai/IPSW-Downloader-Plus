@@ -10,7 +10,7 @@ struct SettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.0"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.1"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "2"
         return String(format: String(localized: "settings.footer.version"), version, build)
     }
