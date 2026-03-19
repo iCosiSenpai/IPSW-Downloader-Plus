@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.0] - 2026-03-19
+
+### Added
+
+- Dedicated managed downloads section with its own selection model, so in-progress tasks remain visible even when the device sidebar selection changes.
+- Bulk actions to pause or cancel the selected active downloads, plus quick controls to pause all or cancel all managed downloads.
+- Local firmware inventory that scans the monitored IPSW folders at launch and shows already-downloaded firmware directly inside the app.
+- Explicit paused download state in the model and UI, including resume actions for interrupted transfers.
+
+### Changed
+
+- Updated app version to `1.2.0`.
+- Updated README release information for GitHub release `v1.2.0`.
+- Refined the downloads view to separate managed downloads from ready, completed, failed, and local firmware lists.
+
+### Fixed
+
+- Fixed a queue progression bug where bulk downloads could appear stuck after the first concurrent slots completed or resolved to already-present firmware.
+- Fixed the inability to control downloads after deselecting devices by decoupling active download management from sidebar device selection.
+- Fixed the lack of pause and cancel controls for current downloads, including per-download and bulk actions.
+
 ## [1.1.0] - 2026-03-18
 
 ### Added

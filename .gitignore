@@ -16,6 +16,7 @@ build/
 Products/
 *.app
 *.ipa
+*.dmg
 *.dSYM.zip
 *.dSYM
 
