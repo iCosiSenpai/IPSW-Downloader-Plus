@@ -209,6 +209,22 @@
 "settings.devices.types.title" = "Device types";
 "settings.devices.minimum" = "minimum required";
 "settings.devices.footer" = "Deselected types are ignored in manual and automatic downloads. At least one must remain active.";
+"settings.appearance.title" = "Appearance";
+"settings.appearance.mode.title" = "Window appearance";
+"settings.appearance.mode.footer" = "System follows macOS automatically. Light and Dark force the app style regardless of the system setting.";
+"settings.appearance.mode.system" = "Automatic";
+"settings.appearance.mode.light" = "Light";
+"settings.appearance.mode.dark" = "Dark";
+"settings.appearance.theme.title" = "Color theme";
+"settings.appearance.theme.footer" = "Themes adjust accent color, highlights and dashboard styling across the app.";
+"settings.appearance.theme.cobalt" = "Cobalt";
+"settings.appearance.theme.cobalt.description" = "Clean blue UI for daily use.";
+"settings.appearance.theme.forest" = "Forest";
+"settings.appearance.theme.forest.description" = "Softer green emphasis with calmer contrast.";
+"settings.appearance.theme.sunset" = "Sunset";
+"settings.appearance.theme.sunset.description" = "Warmer orange look with higher visual energy.";
+"settings.appearance.theme.graphite" = "Graphite";
+"settings.appearance.theme.graphite.description" = "Neutral gray palette for a quieter workspace.";
 
 /* IPSWSettings */
 "schedule.disabled" = "Disabled";
@@ -264,18 +280,117 @@
 "activity.devices_failed.title" = "Device catalog update failed";
 "activity.download_queued" = "Queued until a download slot becomes available.";
 "activity.download_start" = "Starting download attempt %1$lld/%2$lld.";
-"activity.download_retry" = "Retry %1$lld/%2$lld in %3$llds due to: %@";
+"activity.download_retry" = "Retry %1$lld/%2$lld in %3$llds due to: %4$@";
 "activity.download_completed" = "Downloaded %@ (%@) successfully.";
 "activity.download_already_present" = "Firmware %@ (%@) is already present locally.";
 "activity.download_cancelled" = "Download cancelled by the user.";
 "activity.download_removed" = "Removed from the current selection and task list.";
 "activity.download_restored" = "Restored from the previous session and queued again.";
 "activity.auto_launch.start.title" = "Scheduled run started";
-"activity.auto_launch.start.message" = "Checking %lld devices in the current automatic selection.";
-"activity.auto_launch.no_signed" = "No signed firmware currently available.";
+"activity.auto_launch.start.message" = "Checking iPhone models compatible with iOS %1$@ (%2$lld devices).";
+"activity.auto_launch.no_signed" = "No signed iOS %@ firmware is currently available for this iPhone.";
 "activity.auto_launch.already_downloaded" = "Firmware %@ (%@) is already available locally.";
 "activity.auto_launch.download_started" = "Scheduled run started downloading %@ (%@).";
 "activity.auto_launch.failed" = "Scheduled run failed: %@";
 "activity.auto_launch.summary.title" = "Scheduled run finished";
 "activity.auto_launch.summary.message" = "%lld checked, %lld downloaded, %lld skipped, %lld failed.";
 "welcome.title.developer" = "Developed by iCosiSenpai";
+
+/* Search */
+"search.no_results" = "No results";
+"search.no_results.hint" = "Try a different name or identifier";
+"search.clear" = "Clear search";
+"search.empty_list" = "No devices available";
+"sidebar.device_count" = "%lld devices";
+"sidebar.device_count.filtered" = "%1$lld of %2$lld devices";
+
+/* Confirmation dialogs */
+"confirm.cancel_download.title" = "Cancel download?";
+"confirm.cancel_download.message" = "Download progress will be lost and the file will not be saved.";
+"confirm.cancel_download.action" = "Cancel download";
+"confirm.remove_device.title" = "Remove device?";
+"confirm.remove_device.message" = "The device will be removed from the current selection and any active download will be cancelled.";
+"confirm.remove_device.action" = "Remove";
+"confirm.cancel_all.title" = "Cancel all downloads?";
+"confirm.cancel_all.message" = "All active and queued downloads will be cancelled. Progress will be lost.";
+"confirm.cancel_all.action" = "Cancel all";
+"confirm.clear_report.title" = "Clear report?";
+"confirm.clear_report.message" = "The last scheduled run report will be permanently removed.";
+"confirm.clear_report.action" = "Clear";
+
+/* Menu commands */
+"menu.downloads" = "Downloads";
+"menu.download_selected" = "Download selected";
+"menu.pause_all" = "Pause all";
+"menu.open_folder" = "Open download folder";
+"menu.select_all" = "Select all devices";
+"menu.deselect_all" = "Deselect all devices";
+
+/* Global progress */
+"detail.global_progress" = "Downloading %1$lld — %2$lld%%";
+
+/* Context menu */
+"context.copy_identifier" = "Copy identifier";
+"context.copy_name" = "Copy name";
+"context.select" = "Select";
+"context.deselect" = "Deselect";
+
+/* Accessibility */
+"accessibility.selected" = "Selected";
+"accessibility.downloading" = "Downloading %lld%%";
+
+/* Detail empty state */
+"detail.empty.step1" = "Select devices from the sidebar";
+"detail.empty.step2" = "Click Download all to start batch";
+"detail.empty.step3" = "Monitor progress here";
+
+/* Round 3 — Filter chips */
+"filter.all" = "All";
+
+/* Round 3 — Resume / Retry */
+"download.resume_all" = "Resume all";
+"download.retry_all" = "Retry all";
+
+/* Round 3 — Window subtitle */
+"window.subtitle.downloading" = "Downloading %1$lld — %2$lld%%";
+
+/* Round 3 — Local firmware context menu */
+"context.copy_path" = "Copy file path";
+"context.move_to_trash" = "Move to Trash";
+"context.copy_download_url" = "Copy download URL";
+
+/* Round 3 — Menu commands */
+"menu.resume_all" = "Resume all paused";
+"menu.retry_failed" = "Retry failed";
+
+/* Round 4 — Clear completed */
+"download.clear_completed" = "Clear completed";
+"activity.cleared_completed.title" = "Completed downloads cleared";
+"activity.cleared_completed.message" = "%lld completed download(s) removed from the list.";
+
+/* Round 4 — Sidebar selection */
+"sidebar.selection_badge" = "%lld selected";
+"sidebar.invert_selection.help" = "Invert selection";
+"menu.invert_selection" = "Invert selection";
+
+/* Round 4 — Activity log */
+"activity.copy_entry" = "Copy entry";
+"activity.clear" = "Clear log";
+
+/* Round 4 — Estimated download size */
+"detail.estimated_size" = "Estimated size: %@";
+"detail.estimated_size.approx" = "Estimated size: ~%@";
+"dashboard.eyebrow" = "Workspace";
+"dashboard.title" = "Download control center";
+"dashboard.summary.loading" = "Refreshing the supported device catalog from the API.";
+"dashboard.summary.ready" = "%lld devices are ready to be filtered, selected and downloaded.";
+"dashboard.metric.devices" = "Visible";
+"dashboard.metric.selected" = "Selected";
+"dashboard.metric.active" = "Active";
+"dashboard.badge.sort" = "Sort";
+"dashboard.badge.selection" = "Selection";
+"dashboard.badge.theme" = "Theme";
+"dashboard.action.download" = "Download selected";
+"dashboard.action.pause_resume" = "Pause or resume";
+"dashboard.action.folder" = "Open folder";
+"dashboard.action.settings" = "Settings";

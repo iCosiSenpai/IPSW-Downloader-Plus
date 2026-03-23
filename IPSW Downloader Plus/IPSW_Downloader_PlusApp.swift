@@ -18,6 +18,7 @@ struct RootView: View {
     let isAutoLaunch: Bool
 
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var isShowingWelcome: Bool
     @State private var isShowingSetup: Bool
@@ -40,6 +41,11 @@ struct RootView: View {
             } else {
                 ContentView(viewModel: viewModel)
             }
+        }
+        .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
+        .overlay {
+            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
+                .allowsHitTesting(false)
         }
         .task {
             // Request notification permission on first launch
@@ -90,6 +96,7 @@ struct RootView: View {
     }
 
     private var requiresFullDiskAccessGate: Bool {
+        settings.hasCompletedInitialSetup &&
         !isShowingWelcome &&
         !isShowingSetup &&
         !settings.isUsingCustomDownloadDirectory &&
@@ -168,6 +175,7 @@ private final class DraggableHostView: NSView {
 struct IPSW_Downloader_PlusApp: App {
 
     @StateObject private var viewModel = IPSWViewModel()
+    @ObservedObject private var settings = AppSettings.shared
 
     /// true se l'app è stata avviata dal LaunchAgent con --auto-launch
     private let isAutoLaunch = CommandLine.arguments.contains("--auto-launch")
@@ -175,13 +183,18 @@ struct IPSW_Downloader_PlusApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(viewModel: viewModel, isAutoLaunch: isAutoLaunch)
+                .preferredColorScheme(settings.appearanceMode.preferredColorScheme)
+                .tint(settings.selectedTheme.tintColor)
         }
         .commands {
             AppSettingsCommands()
+            AppDownloadCommands(viewModel: viewModel)
         }
 
         Window(String(localized: "settings.window.title"), id: "settings") {
             SettingsView()
+                .preferredColorScheme(settings.appearanceMode.preferredColorScheme)
+                .tint(settings.selectedTheme.tintColor)
         }
         .defaultSize(width: 560, height: 420)
         .windowResizability(.contentSize)
@@ -197,6 +210,59 @@ private struct AppSettingsCommands: Commands {
                 openWindow(id: "settings")
             }
             .keyboardShortcut(",", modifiers: .command)
+        }
+    }
+}
+
+struct AppDownloadCommands: Commands {
+    @ObservedObject var viewModel: IPSWViewModel
+
+    var body: some Commands {
+        CommandMenu(String(localized: "menu.downloads")) {
+            Button(String(localized: "menu.download_selected")) {
+                viewModel.downloadSelectedDevices()
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
+            .disabled(viewModel.selectedDeviceIDs.isEmpty)
+
+            Button(String(localized: "menu.pause_all")) {
+                viewModel.pauseAllManagedDownloads()
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
+            .disabled(!viewModel.hasActiveDownloads)
+
+            Button(String(localized: "menu.resume_all")) {
+                viewModel.resumeAllPausedDownloads()
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .disabled(!viewModel.hasPausedDownloads)
+
+            Button(String(localized: "menu.retry_failed")) {
+                viewModel.retryAllFailed()
+            }
+            .disabled(!viewModel.hasFailedDownloads)
+
+            Button(String(localized: "menu.open_folder")) {
+                viewModel.openDownloadFolder()
+            }
+            .keyboardShortcut("o", modifiers: [.command, .shift])
+
+            Divider()
+
+            Button(String(localized: "menu.select_all")) {
+                viewModel.selectAll()
+            }
+            .keyboardShortcut("a", modifiers: .command)
+
+            Button(String(localized: "menu.deselect_all")) {
+                viewModel.deselectAll()
+            }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+
+            Button(String(localized: "menu.invert_selection")) {
+                viewModel.invertSelection()
+            }
+            .keyboardShortcut("i", modifiers: [.command, .shift])
         }
     }
 }

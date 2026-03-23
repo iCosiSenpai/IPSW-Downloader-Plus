@@ -10,77 +10,101 @@ struct WelcomeView: View {
     let onContinue: () -> Void
 
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(alignment: .top, spacing: 16) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 52))
-                        .foregroundStyle(Color.accentColor)
+        ZStack {
+            ThemeCanvasBackground(theme: settings.selectedTheme)
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(String(localized: "welcome.title"))
-                            .font(.largeTitle.weight(.bold))
-                        Text(String(localized: "welcome.hero.body"))
-                            .font(.title3)
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(alignment: .top, spacing: 16) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 52))
+                            .foregroundStyle(settings.selectedTheme.tintColor)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(String(localized: "welcome.title"))
+                                .font(.largeTitle.weight(.bold))
+                            Text(String(localized: "welcome.hero.body"))
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            HStack(spacing: 10) {
+                                Link(String(localized: "welcome.title.developer"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(settings.selectedTheme.tintColor)
+                                Text(settings.selectedTheme.localizedTitle)
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(settings.selectedTheme.tintColor.opacity(0.12), in: Capsule())
+                                    .foregroundStyle(settings.selectedTheme.tintColor)
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 14) {
+                        welcomeCard(
+                            title: String(localized: "welcome.card.downloads.title"),
+                            message: String(localized: "welcome.card.downloads.body"),
+                            systemImage: "square.and.arrow.down.on.square.fill",
+                            tint: .blue
+                        )
+                        welcomeCard(
+                            title: String(localized: "welcome.card.setup.title"),
+                            message: String(localized: "welcome.card.setup.body"),
+                            systemImage: "slider.horizontal.3",
+                            tint: .orange
+                        )
+                    }
+
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundStyle(.secondary)
+                        Text(String(localized: "welcome.flow.note"))
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        Link(String(localized: "welcome.title.developer"), destination: URL(string: "https://github.com/iCosiSenpai")!)
-                            .font(.subheadline.weight(.semibold))
                     }
+                    .padding(12)
+                    .background(Color.primary.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
+                .padding(28)
+                .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
+                .background(settings.selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 24))
+                .padding(20)
 
-                HStack(spacing: 14) {
-                    welcomeCard(
-                        title: String(localized: "welcome.card.downloads.title"),
-                        message: String(localized: "welcome.card.downloads.body"),
-                        systemImage: "square.and.arrow.down.on.square.fill",
-                        tint: .blue
-                    )
-                    welcomeCard(
-                        title: String(localized: "welcome.card.setup.title"),
-                        message: String(localized: "welcome.card.setup.body"),
-                        systemImage: "slider.horizontal.3",
-                        tint: .orange
-                    )
-                }
+                Divider()
 
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "info.circle.fill")
-                        .foregroundStyle(.secondary)
-                    Text(String(localized: "welcome.flow.note"))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .center, spacing: 16) {
+                    Toggle(isOn: $settings.showWelcomeOnStartup) {
+                        Text(String(localized: "welcome.cta.show_on_startup"))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .toggleStyle(.checkbox)
+
+                    Spacer()
+
+                    Button(String(localized: "welcome.cta.continue")) {
+                        onContinue()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
                 }
-                .padding(12)
-                .background(Color.accentColor.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 28)
+                .padding(.vertical, 18)
+                .frame(minHeight: 64)
             }
-            .padding(28)
-
-            Divider()
-
-            HStack {
-                Toggle(isOn: $settings.showWelcomeOnStartup) {
-                    Text(String(localized: "welcome.cta.show_on_startup"))
-                        .foregroundStyle(.secondary)
-                }
-                .toggleStyle(.checkbox)
-
-                Spacer()
-
-                Button(String(localized: "welcome.cta.continue")) {
-                    onContinue()
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 18)
         }
-        .frame(width: 640, height: 430)
+        .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
+        .overlay {
+            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
+                .allowsHitTesting(false)
+        }
+        .frame(width: 680, height: 500)
     }
 
     @ViewBuilder
@@ -98,8 +122,7 @@ struct WelcomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(16)
-        .background(tint.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .themeMetricCardBackground(tint: tint, cornerRadius: 14)
     }
 }
 
@@ -108,6 +131,7 @@ struct InitialSetupView: View {
     let onFinish: () -> Void
 
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = AppSettings.shared
     @State private var selectedStep = 0
 
@@ -118,82 +142,94 @@ struct InitialSetupView: View {
     ]
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                Image(systemName: "wand.and.stars.inverse")
-                    .font(.system(size: 42))
-                    .foregroundStyle(Color.accentColor)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "setup.title"))
-                        .font(.title2.weight(.bold))
-                    Text(String(localized: "setup.subtitle"))
-                        .foregroundStyle(.secondary)
+        ZStack {
+            ThemeCanvasBackground(theme: settings.selectedTheme)
+
+            VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "wand.and.stars.inverse")
+                        .font(.system(size: 42))
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "setup.title"))
+                            .font(.title2.weight(.bold))
+                        Text(String(localized: "setup.subtitle"))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 18)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
 
-            Divider()
+                Divider()
 
-            HStack(spacing: 10) {
-                ForEach(Array(stepTitles.enumerated()), id: \.offset) { index, key in
-                    setupStepChip(index: index, key: key)
+                HStack(spacing: 10) {
+                    ForEach(Array(stepTitles.enumerated()), id: \.offset) { index, key in
+                        setupStepChip(index: index, key: key)
+                    }
+                    Spacer()
                 }
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
 
-            Divider()
+                Divider()
 
-            Group {
-                switch selectedStep {
-                case 0:
-                    permissionsStep
-                case 1:
-                    foldersStep
-                default:
-                    finishStep
+                Group {
+                    switch selectedStep {
+                    case 0:
+                        permissionsStep
+                    case 1:
+                        foldersStep
+                    default:
+                        finishStep
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.vertical, 4)
 
-            Divider()
+                Divider()
 
-            HStack {
-                Button(String(localized: "setup.open.settings")) {
-                    openWindow(id: "settings")
-                }
-                .buttonStyle(.bordered)
-
-                Spacer()
-
-                if selectedStep > 0 {
-                    Button(String(localized: "welcome.cta.back")) {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            selectedStep -= 1
-                        }
+                HStack {
+                    Button(String(localized: "setup.open.settings")) {
+                        openWindow(id: "settings")
                     }
                     .buttonStyle(.bordered)
-                }
 
-                Button(selectedStep == stepTitles.count - 1 ? String(localized: "setup.finish") : String(localized: "welcome.cta.next")) {
-                    if selectedStep == stepTitles.count - 1 {
-                        onFinish()
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            selectedStep += 1
+                    Spacer()
+
+                    if selectedStep > 0 {
+                        Button(String(localized: "welcome.cta.back")) {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                selectedStep -= 1
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Button(selectedStep == stepTitles.count - 1 ? String(localized: "setup.finish") : String(localized: "welcome.cta.next")) {
+                        if selectedStep == stepTitles.count - 1 {
+                            onFinish()
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                selectedStep += 1
+                            }
                         }
                     }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
                 }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
+            .padding(18)
         }
-        .frame(width: 700, height: 560)
+        .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
+        .overlay {
+            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
+                .allowsHitTesting(false)
+        }
+        .frame(width: 720, height: 620)
     }
 
     private var permissionsStep: some View {
@@ -209,7 +245,9 @@ struct InitialSetupView: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
 
-                FDAStatusBanner(showGuide: true)
+                FDAStatusBanner(showGuide: true) { updatedStatus in
+                    fullDiskAccessStatus = updatedStatus
+                }
 
                 HStack(spacing: 10) {
                     Button(String(localized: "welcome.fda.button")) {
@@ -285,40 +323,43 @@ struct InitialSetupView: View {
     }
 
     private var finishStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(String(localized: "setup.finish.title"), systemImage: "checkmark.seal.fill")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.green)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Label(String(localized: "setup.finish.title"), systemImage: "checkmark.seal.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Text(String(localized: "setup.finish.body"))
-                .foregroundStyle(.secondary)
+                Text(String(localized: "setup.finish.body"))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            summaryRow(
-                title: String(localized: "setup.summary.permission"),
-                value: permissionSummary
-            )
-            summaryRow(
-                title: String(localized: "setup.summary.destination"),
-                value: settings.isUsingCustomDownloadDirectory
-                    ? settings.customDownloadDirectoryDisplayPath
-                    : String(localized: "setup.summary.destination_default")
-            )
-            summaryRow(
-                title: String(localized: "setup.summary.welcome"),
-                value: settings.showWelcomeOnStartup
-                    ? String(localized: "setup.summary.enabled")
-                    : String(localized: "setup.summary.disabled")
-            )
+                summaryRow(
+                    title: String(localized: "setup.summary.permission"),
+                    value: permissionSummary
+                )
+                summaryRow(
+                    title: String(localized: "setup.summary.destination"),
+                    value: settings.isUsingCustomDownloadDirectory
+                        ? settings.customDownloadDirectoryDisplayPath
+                        : String(localized: "setup.summary.destination_default")
+                )
+                summaryRow(
+                    title: String(localized: "setup.summary.welcome"),
+                    value: settings.showWelcomeOnStartup
+                        ? String(localized: "setup.summary.enabled")
+                        : String(localized: "setup.summary.disabled")
+                )
 
-            setupStatusBanner(
-                title: String(localized: "setup.finish.banner"),
-                message: String(localized: "setup.finish.ready"),
-                tint: .green
-            )
-
-            Spacer()
+                setupStatusBanner(
+                    title: String(localized: "setup.finish.banner"),
+                    message: String(localized: "setup.finish.ready"),
+                    tint: .green
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(24)
         }
-        .padding(24)
     }
 
     private var permissionTint: Color {
@@ -361,8 +402,7 @@ struct InitialSetupView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tint.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var permissionSummary: String {
@@ -391,8 +431,7 @@ struct InitialSetupView: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(14)
-        .background(Color.secondary.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder
@@ -406,8 +445,7 @@ struct InitialSetupView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(NSColor.windowBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -415,6 +453,7 @@ struct InitialSetupView: View {
 
 struct FDAStatusBanner: View {
     var showGuide: Bool = false
+    var onStatusChange: ((FullDiskAccessStatus) -> Void)? = nil
 
     @State private var status: FullDiskAccessStatus = FullDiskAccessChecker.status()
 
@@ -452,14 +491,14 @@ struct FDAStatusBanner: View {
                     Button(String(localized: "welcome.fda.button")) {
                         FullDiskAccessChecker.openPrivacySettings()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            status = FullDiskAccessChecker.status()
+                            refreshStatus()
                         }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
 
                     Button(String(localized: "welcome.fda.recheck")) {
-                        status = FullDiskAccessChecker.status()
+                        refreshStatus()
                     }
                     .buttonStyle(.borderless)
                     .font(.caption2)
@@ -472,7 +511,19 @@ struct FDAStatusBanner: View {
         .background(iconColor.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(iconColor.opacity(0.3), lineWidth: 1))
-        .onAppear { status = FullDiskAccessChecker.status() }
+        .onAppear { refreshStatus() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // System Settings changes can land slightly after the app becomes active again.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                refreshStatus()
+            }
+        }
+    }
+
+    private func refreshStatus() {
+        let updated = FullDiskAccessChecker.status()
+        status = updated
+        onStatusChange?(updated)
     }
 
     private var iconName: String {

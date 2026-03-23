@@ -63,6 +63,16 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(hasCompletedInitialSetup, forKey: "hasCompletedInitialSetup") }
     }
 
+    // MARK: Appearance
+
+    @Published var appearanceMode: AppAppearanceMode {
+        didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
+    }
+
+    @Published var selectedTheme: AppTheme {
+        didSet { UserDefaults.standard.set(selectedTheme.rawValue, forKey: "selectedTheme") }
+    }
+
     // MARK: Delete Mode
 
     @Published var deleteMode: DeleteMode {
@@ -191,6 +201,8 @@ final class AppSettings: ObservableObject {
         // Se la chiave non esiste ancora (primo avvio), il default è true
         showWelcomeOnStartup = ud.object(forKey: "showWelcomeOnStartup") as? Bool ?? true
         hasCompletedInitialSetup = ud.object(forKey: "hasCompletedInitialSetup") as? Bool ?? false
+        appearanceMode = AppAppearanceMode(rawValue: ud.string(forKey: "appearanceMode") ?? "") ?? .system
+        selectedTheme = AppTheme(rawValue: ud.string(forKey: "selectedTheme") ?? "") ?? .cobalt
         deleteMode           = DeleteMode(rawValue: ud.string(forKey: "deleteMode") ?? "") ?? .permanent
         autoLaunchEnabled    = ud.bool(forKey: "autoLaunchEnabled")
         autoLaunchHour       = ud.object(forKey: "autoLaunchHour") as? Int ?? 3

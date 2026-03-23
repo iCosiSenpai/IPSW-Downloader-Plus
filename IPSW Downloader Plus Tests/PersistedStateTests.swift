@@ -119,6 +119,49 @@ struct PersistedStateTests {
     }
 
     @Test
+    func newestSignedFirmwareForSpecificVersionPicksPreferredMatch() {
+        let firmwares = [
+            IPSWFirmware(
+                identifier: "iPhone17,1",
+                version: "18.4",
+                buildid: "22E100",
+                sha1: nil,
+                filesize: 100,
+                url: "https://updates.cdn-apple.com/older.ipsw",
+                filename: nil,
+                releasedate: "2026-03-01T00:00:00Z",
+                signed: true
+            ),
+            IPSWFirmware(
+                identifier: "iPhone17,1",
+                version: "18.4",
+                buildid: "22E101",
+                sha1: nil,
+                filesize: 100,
+                url: "https://updates.cdn-apple.com/newer.ipsw",
+                filename: nil,
+                releasedate: "2026-03-02T00:00:00Z",
+                signed: true
+            ),
+            IPSWFirmware(
+                identifier: "iPhone17,1",
+                version: "18.5",
+                buildid: "22F100",
+                sha1: nil,
+                filesize: 100,
+                url: "https://updates.cdn-apple.com/other.ipsw",
+                filename: nil,
+                releasedate: "2026-03-03T00:00:00Z",
+                signed: true
+            )
+        ]
+
+        let result = firmwares.newestSignedFirmware(version: "18.4")
+
+        #expect(result?.buildid == "22E101")
+    }
+
+    @Test
     func fullDiskAccessResolutionDistinguishesDeniedAndUndetermined() {
         #expect(
             FullDiskAccessChecker.resolveStatus(

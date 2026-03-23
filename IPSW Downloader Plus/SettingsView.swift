@@ -8,59 +8,71 @@ import AppKit
 
 struct SettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.1"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "26.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "2"
         return String(format: String(localized: "settings.footer.version"), version, build)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            TabView {
-                GeneralSettingsTab(settings: settings)
-                    .tabItem { Label(String(localized: "settings.tab.general"), systemImage: "gearshape") }
+        ZStack {
+            ThemeCanvasBackground(theme: settings.selectedTheme)
 
-                DownloadSettingsTab(settings: settings)
-                    .tabItem { Label(String(localized: "settings.tab.download"), systemImage: "arrow.down.circle") }
+            VStack(spacing: 0) {
+                TabView {
+                    GeneralSettingsTab(settings: settings)
+                        .tabItem { Label(String(localized: "settings.tab.general"), systemImage: "gearshape") }
 
-                ScheduleSettingsTab(settings: settings)
-                    .tabItem { Label(String(localized: "settings.tab.schedule"), systemImage: "calendar.badge.clock") }
+                    DownloadSettingsTab(settings: settings)
+                        .tabItem { Label(String(localized: "settings.tab.download"), systemImage: "arrow.down.circle") }
 
-                DeviceFilterTab(settings: settings)
-                    .tabItem { Label(String(localized: "settings.tab.devices"), systemImage: "iphone") }
-            }
+                    ScheduleSettingsTab(settings: settings)
+                        .tabItem { Label(String(localized: "settings.tab.schedule"), systemImage: "calendar.badge.clock") }
 
-            Divider()
-
-            HStack(spacing: 10) {
-                Text(appVersion)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button(String(localized: "settings.general.startup.open_welcome")) {
-                    NotificationCenter.default.post(name: .showWelcomeFlow, object: nil)
+                    DeviceFilterTab(settings: settings)
+                        .tabItem { Label(String(localized: "settings.tab.devices"), systemImage: "iphone") }
                 }
-                .buttonStyle(.link)
 
-                Button(String(localized: "settings.general.startup.open_setup")) {
-                    NotificationCenter.default.post(name: .showInitialSetupFlow, object: nil)
-                }
-                .buttonStyle(.link)
+                Divider()
 
-                Link(String(localized: "settings.footer.github"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                HStack(spacing: 10) {
+                    Text(appVersion)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button(String(localized: "settings.general.startup.open_welcome")) {
+                        NotificationCenter.default.post(name: .showWelcomeFlow, object: nil)
+                    }
                     .buttonStyle(.link)
 
-                Link(String(localized: "settings.footer.support"), destination: URL(string: "https://paypal.me/AlessioCosi")!)
+                    Button(String(localized: "settings.general.startup.open_setup")) {
+                        NotificationCenter.default.post(name: .showInitialSetupFlow, object: nil)
+                    }
                     .buttonStyle(.link)
+
+                    Link(String(localized: "settings.footer.github"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                        .buttonStyle(.link)
+
+                    Link(String(localized: "settings.footer.support"), destination: URL(string: "https://paypal.me/AlessioCosi")!)
+                        .buttonStyle(.link)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.bar)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.bar)
+            .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 22)
+            .padding(14)
         }
-        .frame(width: 620, height: 470)
+        .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
+        .overlay {
+            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
+                .allowsHitTesting(false)
+        }
+        .frame(width: 720, height: 560)
     }
 }
 
@@ -72,6 +84,9 @@ private struct GeneralSettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                SettingsGroup(title: String(localized: "settings.appearance.title")) {
+                    AppearanceSettingsSection(settings: settings)
+                }
 
                 // Startup
                 SettingsGroup(title: String(localized: "settings.general.startup.title")) {
@@ -164,6 +179,56 @@ private struct GeneralSettingsTab: View {
     private func openCustomFolder() {
         guard let url = settings.customDownloadDirectoryURL else { return }
         NSWorkspace.shared.open(url)
+    }
+}
+
+private struct AppearanceSettingsSection: View {
+    @ObservedObject var settings: AppSettings
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(localized: "settings.appearance.mode.title"))
+                    .font(.subheadline.weight(.semibold))
+
+                Picker("", selection: $settings.appearanceMode) {
+                    ForEach(AppAppearanceMode.allCases) { mode in
+                        Text(mode.localizedTitle).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                Text(String(localized: "settings.appearance.mode.footer"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(String(localized: "settings.appearance.theme.title"))
+                    .font(.subheadline.weight(.semibold))
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Button {
+                            settings.selectedTheme = theme
+                        } label: {
+                            ThemePreviewCard(theme: theme, isSelected: settings.selectedTheme == theme)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Text(String(localized: "settings.appearance.theme.footer"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -302,6 +367,7 @@ private struct FolderSizeView: View {
 
 private struct ScheduleSettingsTab: View {
     @ObservedObject var settings: AppSettings
+    @State private var showClearReportConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -361,9 +427,20 @@ private struct ScheduleSettingsTab: View {
                                 }
 
                                 Button(String(localized: "settings.schedule.report.clear")) {
-                                    settings.clearAutoLaunchReport()
+                                    showClearReportConfirmation = true
                                 }
                                 .buttonStyle(.bordered)
+                                .confirmationDialog(
+                                    String(localized: "confirm.clear_report.title"),
+                                    isPresented: $showClearReportConfirmation,
+                                    titleVisibility: .visible
+                                ) {
+                                    Button(String(localized: "confirm.clear_report.action"), role: .destructive) {
+                                        settings.clearAutoLaunchReport()
+                                    }
+                                } message: {
+                                    Text(String(localized: "confirm.clear_report.message"))
+                                }
                             }
                         }
                     }

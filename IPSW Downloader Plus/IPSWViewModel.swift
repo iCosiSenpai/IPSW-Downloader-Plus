@@ -31,6 +31,7 @@ final class IPSWViewModel: ObservableObject {
     @Published var sortAscending = SidebarSortOption.name.defaultAscending
     @Published private(set) var deviceSortMetadata: [String: DeviceSortMetadata] = [:]
     @Published private(set) var activityLog: [ActivityLogEntry] = []
+    @Published var activeDeviceTypeFilter: String? = nil
 
     // Riferimento alle impostazioni globali
     private let settings = AppSettings.shared
@@ -93,6 +94,14 @@ final class IPSWViewModel: ObservableObject {
         }
         .store(in: &cancellables)
 
+        $downloadTasks
+            .map { _ in () }
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .sink { [weak self] in
+                self?.updateDockBadge()
+            }
+            .store(in: &cancellables)
+
         restartDirectoryMonitoring()
     }
 
@@ -125,6 +134,11 @@ final class IPSWViewModel: ObservableObject {
             // Filtro product type dalle impostazioni
             if !settings.isProductTypeEnabled(key) { return false }
 
+            // Filtro tipo dispositivo (chip sidebar)
+            if let typeFilter = activeDeviceTypeFilter {
+                guard AppSettings.productTypeKey(for: id) == typeFilter else { return false }
+            }
+
             // Filtro testo di ricerca
             if searchText.isEmpty { return true }
             return device.name.localizedCaseInsensitiveContains(searchText) ||
@@ -138,6 +152,100 @@ final class IPSWViewModel: ObservableObject {
 
     var activeSortSummary: String {
         sortOption.localizedTitle
+    }
+
+    // MARK: - Device Type Filter Chips
+
+    /// Available device type filters based on currently visible devices
+    var availableDeviceTypeFilters: [(id: String, label: String, symbol: String, count: Int)] {
+        var counts: [String: Int] = [:]
+        for device in devices {
+            guard let key = AppSettings.productTypeKey(for: device.identifier) else { continue }
+            guard settings.isProductTypeEnabled(key) else { continue }
+            counts[key, default: 0] += 1
+        }
+        return AppSettings.allProductTypePrefixes
+            .compactMap { item in
+                guard let count = counts[item.id], count > 0 else { return nil }
+                return (id: item.id, label: item.label, symbol: item.symbol, count: count)
+            }
+    }
+
+    // MARK: - Search Result Counter
+
+    var deviceCountLabel: String {
+        let filtered = filteredDevices.count
+        let total = visibleDevices.count
+        if !searchText.isEmpty && filtered != total {
+            return String(format: String(localized: "sidebar.device_count.filtered"), filtered, total)
+        }
+        return String(format: String(localized: "sidebar.device_count"), filtered)
+    }
+
+    // MARK: - Global Download Progress
+
+    var hasActiveDownloads: Bool {
+        downloadTasks.values.contains { task in
+            switch task.state {
+            case .downloading, .queued, .verifying:
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
+    var globalProgressFraction: Double {
+        let activeTasks = downloadTasks.values.filter { task in
+            switch task.state {
+            case .downloading, .queued, .verifying:
+                return true
+            default:
+                return false
+            }
+        }
+        guard !activeTasks.isEmpty else { return 0 }
+        let total = activeTasks.reduce(0.0) { acc, task in
+            if case .downloading(let progress) = task.state { return acc + progress }
+            if case .verifying = task.state { return acc + 0.99 }
+            return acc
+        }
+        return total / Double(activeTasks.count)
+    }
+
+    var globalProgressTitle: String {
+        let count = downloadTasks.values.filter { task in
+            switch task.state {
+            case .downloading, .queued, .verifying:
+                return true
+            default:
+                return false
+            }
+        }.count
+        let percent = Int(globalProgressFraction * 100)
+        return String(format: String(localized: "detail.global_progress"), count, percent)
+    }
+
+    // MARK: - Total Download Stats
+
+    var totalBytesDownloaded: Int64 {
+        downloadTasks.values.compactMap(\.progressDetails).reduce(0) { $0 + $1.bytesWritten }
+    }
+
+    var totalBytesExpected: Int64 {
+        downloadTasks.values.compactMap(\.progressDetails).reduce(0) { $0 + $1.totalBytesExpected }
+    }
+
+    var totalDownloadSpeed: Double {
+        downloadTasks.values.compactMap(\.progressDetails).reduce(0.0) { $0 + $1.bytesPerSecond }
+    }
+
+    var downloadStatsText: String {
+        guard totalBytesExpected > 0 else { return "" }
+        let downloaded = ByteCountFormatter.string(fromByteCount: totalBytesDownloaded, countStyle: .file)
+        let expected = ByteCountFormatter.string(fromByteCount: totalBytesExpected, countStyle: .file)
+        let speed = ByteCountFormatter.string(fromByteCount: Int64(totalDownloadSpeed), countStyle: .file)
+        return "\(downloaded) / \(expected) — \(speed)/s"
     }
 
     var recentActivityEntries: [ActivityLogEntry] {
@@ -675,7 +783,7 @@ final class IPSWViewModel: ObservableObject {
     }
 
     func cancelSelectedManagedDownloads() {
-        let devicesToCancel = managedDownloadDevices.filter { selectedManagedDownloadIDs.contains($0.identifier) }
+        let devicesToCancel = cancellableManagedDevices.filter { selectedManagedDownloadIDs.contains($0.identifier) }
         for device in devicesToCancel {
             cancelDownload(for: device)
         }
@@ -690,10 +798,161 @@ final class IPSWViewModel: ObservableObject {
     }
 
     func cancelAllManagedDownloads() {
-        for device in managedDownloadDevices {
+        for device in cancellableManagedDevices {
             cancelDownload(for: device)
         }
         selectedManagedDownloadIDs.removeAll()
+    }
+
+    func resumeAllPausedDownloads() {
+        let paused = managedDownloadDevices.filter { device in
+            if case .paused = downloadState(for: device) { return true }
+            return false
+        }
+        for device in paused {
+            resumeDownload(for: device)
+        }
+    }
+
+    var hasPausedDownloads: Bool {
+        managedDownloadDevices.contains { device in
+            if case .paused = downloadState(for: device) { return true }
+            return false
+        }
+    }
+
+    var cancellableManagedDevices: [IPSWDevice] {
+        downloadTasks.values
+            .filter { task in
+                switch task.state {
+                case .queued, .paused, .downloading, .verifying:
+                    return true
+                default:
+                    return false
+                }
+            }
+            .map(\.device)
+            .sorted { $0.name < $1.name }
+    }
+
+    func retryAllFailed() {
+        let failed = orderedSelectedDevices.filter { device in
+            if case .failed = downloadState(for: device) { return true }
+            return false
+        }
+        for device in failed {
+            scheduleDownload(for: device)
+        }
+    }
+
+    var hasFailedDownloads: Bool {
+        orderedSelectedDevices.contains { device in
+            if case .failed = downloadState(for: device) { return true }
+            return false
+        }
+    }
+
+    var hasCompletedDownloads: Bool {
+        orderedSelectedDevices.contains { device in
+            if case .completed = downloadState(for: device) { return true }
+            return false
+        }
+    }
+
+    func clearCompletedDownloads() {
+        let completed = orderedSelectedDevices.filter { device in
+            if case .completed = downloadState(for: device) { return true }
+            return false
+        }
+        for device in completed {
+            downloadTasks.removeValue(forKey: device.identifier)
+        }
+        appendActivity(
+            kind: .info,
+            deviceIdentifier: nil,
+            title: String(localized: "activity.cleared_completed.title"),
+            message: String(format: String(localized: "activity.cleared_completed.message"), completed.count)
+        )
+    }
+
+    func invertSelection() {
+        let allVisible = Set(filteredDevices.map(\.identifier))
+        let currentlySelected = selectedDeviceIDs.intersection(allVisible)
+        let newSelection = allVisible.subtracting(currentlySelected)
+        // Keep selections that are outside current filter
+        let outsideFilter = selectedDeviceIDs.subtracting(allVisible)
+        selectedDeviceIDs = newSelection.union(outsideFilter)
+    }
+
+    func clearActivityLog() {
+        activityLog.removeAll()
+    }
+
+    /// Dock badge count: number of actively downloading items
+    var dockBadgeCount: Int {
+        downloadTasks.values.filter { task in
+            switch task.state {
+            case .downloading, .queued, .verifying: return true
+            default: return false
+            }
+        }.count
+    }
+
+    func updateDockBadge() {
+        let count = dockBadgeCount
+        let app = NSApplication.shared
+        if count > 0 {
+            app.dockTile.badgeLabel = "\(count)"
+        } else {
+            app.dockTile.badgeLabel = nil
+        }
+    }
+
+    /// Active download count for window subtitle
+    var activeDownloadCount: Int {
+        downloadTasks.values.filter { task in
+            switch task.state {
+            case .downloading, .queued, .verifying: return true
+            default: return false
+            }
+        }.count
+    }
+
+    /// Estimated total download size for selected idle (ready) devices
+    var estimatedTotalDownloadSize: String? {
+        let readyTasks = orderedSelectedDevices.filter { device in
+            if case .idle = downloadState(for: device) { return true }
+            return false
+        }
+        guard !readyTasks.isEmpty else { return nil }
+        // Sum up firmware sizes from known metadata
+        var totalBytes: Int64 = 0
+        var knownCount = 0
+        for device in readyTasks {
+            if let task = downloadTasks[device.identifier],
+               let size = task.firmware.filesize {
+                totalBytes += size
+                knownCount += 1
+            } else if let meta = deviceSortMetadata[device.identifier],
+                      meta.latestFirmwareVersion != nil {
+                // Rough estimate: typical IPSW is ~6 GB
+                totalBytes += 6_000_000_000
+            }
+        }
+        guard totalBytes > 0 else { return nil }
+        let formatted = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+        if knownCount == readyTasks.count {
+            return String(format: String(localized: "detail.estimated_size"), formatted)
+        }
+        return String(format: String(localized: "detail.estimated_size.approx"), formatted)
+    }
+
+    /// Window subtitle showing active download status
+    var windowSubtitle: String? {
+        let count = activeDownloadCount
+        guard count > 0 else { return nil }
+        let percent = Int(globalProgressFraction * 100)
+        return String(format: String(localized: "window.subtitle.downloading"), count, percent)
     }
 
     // MARK: - Local File Helpers
@@ -724,72 +983,88 @@ final class IPSWViewModel: ObservableObject {
     // MARK: - Auto-launch (avviato da LaunchAgent con --auto-launch)
 
     /// Chiamato all'avvio dell'app quando viene rilevato il flag --auto-launch.
-    /// Controlla i firmware più recenti per tutti i dispositivi abilitati,
-    /// scarica solo quelli non ancora presenti in locale, poi chiude l'app.
+    /// Recupera l'ultima release iOS firmata, individua gli iPhone compatibili via API,
+    /// scarica quella release solo per i modelli supportati e poi chiude l'app.
     func runAutoLaunchUpdate() async {
         let startedAt = Date()
         await loadDevices()
 
-        let devicesToCheck = filteredDevices
         var checkedCount = 0
         var downloadedCount = 0
         var skippedCount = 0
         var failedCount = 0
 
-        appendActivity(
-            kind: .info,
-            deviceIdentifier: nil,
-            title: String(localized: "activity.auto_launch.start.title"),
-            message: String(format: String(localized: "activity.auto_launch.start.message"), devicesToCheck.count)
-        )
-
-        for device in devicesToCheck {
-            checkedCount += 1
-            do {
-                let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
-                guard let firmware = detailed.firmwares?.newestSignedFirmware()
-                else {
-                    skippedCount += 1
-                    appendActivity(
-                        kind: .warning,
-                        deviceIdentifier: device.identifier,
-                        title: device.name,
-                        message: String(localized: "activity.auto_launch.no_signed")
-                    )
-                    continue
-                }
-
-                if isAlreadyDownloaded(firmware: firmware) {
-                    skippedCount += 1
-                    appendActivity(
-                        kind: .info,
-                        deviceIdentifier: device.identifier,
-                        title: device.name,
-                        message: String(format: String(localized: "activity.auto_launch.already_downloaded"), firmware.version, firmware.buildid)
-                    )
-                } else {
-                    appendActivity(
-                        kind: .info,
-                        deviceIdentifier: device.identifier,
-                        title: device.name,
-                        message: String(format: String(localized: "activity.auto_launch.download_started"), firmware.version, firmware.buildid)
-                    )
-                    await startDownloadAndWait(for: device)
-                    if case .completed = downloadTasks[device.identifier]?.state {
-                        downloadedCount += 1
-                    } else {
-                        failedCount += 1
-                    }
-                }
-            } catch {
-                failedCount += 1
-                appendActivity(
-                    kind: .error,
-                    deviceIdentifier: device.identifier,
-                    title: device.name,
-                    message: String(format: String(localized: "activity.auto_launch.failed"), error.localizedDescription)
-                )
+        do {
+            let latestVersion = try await IPSWAPIClient.shared.fetchLatestIOSVersion()
+            let signedIdentifiers = try await IPSWAPIClient.shared.fetchSignedDeviceIdentifiers(for: latestVersion)
+            let devicesToCheck = filteredDevices.filter { device in
+                device.identifier.lowercased().hasPrefix("iphone") &&
+                signedIdentifiers.contains(device.identifier)
             }
+
+            appendActivity(
+                kind: .info,
+                deviceIdentifier: nil,
+                title: String(localized: "activity.auto_launch.start.title"),
+                message: String(format: String(localized: "activity.auto_launch.start.message"), latestVersion, devicesToCheck.count)
+            )
+
+            for device in devicesToCheck {
+                checkedCount += 1
+                do {
+                    let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                    guard let firmware = detailed.firmwares?.newestSignedFirmware(version: latestVersion)
+                    else {
+                        skippedCount += 1
+                        appendActivity(
+                            kind: .warning,
+                            deviceIdentifier: device.identifier,
+                            title: device.name,
+                            message: String(format: String(localized: "activity.auto_launch.no_signed"), latestVersion)
+                        )
+                        continue
+                    }
+
+                    if isAlreadyDownloaded(firmware: firmware) {
+                        skippedCount += 1
+                        appendActivity(
+                            kind: .info,
+                            deviceIdentifier: device.identifier,
+                            title: device.name,
+                            message: String(format: String(localized: "activity.auto_launch.already_downloaded"), firmware.version, firmware.buildid)
+                        )
+                    } else {
+                        appendActivity(
+                            kind: .info,
+                            deviceIdentifier: device.identifier,
+                            title: device.name,
+                            message: String(format: String(localized: "activity.auto_launch.download_started"), firmware.version, firmware.buildid)
+                        )
+                        await startDownloadAndWait(for: device, firmware: firmware)
+                        if case .completed = downloadTasks[device.identifier]?.state {
+                            downloadedCount += 1
+                        } else {
+                            failedCount += 1
+                        }
+                    }
+                } catch {
+                    failedCount += 1
+                    appendActivity(
+                        kind: .error,
+                        deviceIdentifier: device.identifier,
+                        title: device.name,
+                        message: String(format: String(localized: "activity.auto_launch.failed"), error.localizedDescription)
+                    )
+                }
+            }
+        } catch {
+            failedCount = 1
+            appendActivity(
+                kind: .error,
+                deviceIdentifier: nil,
+                title: String(localized: "activity.auto_launch.start.title"),
+                message: String(format: String(localized: "activity.auto_launch.failed"), error.localizedDescription)
+            )
         }
 
         let report = AutoLaunchReport(
@@ -827,17 +1102,23 @@ final class IPSWViewModel: ObservableObject {
     }
 
     /// Avvia il download di un dispositivo e attende il suo completamento (successo o fallimento).
-    private func startDownloadAndWait(for device: IPSWDevice) async {
+    private func startDownloadAndWait(for device: IPSWDevice, firmware targetFirmware: IPSWFirmware? = nil) async {
         await withCheckedContinuation { continuation in
             Task {
                 do {
-                    let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
-                    guard let firmware = detailed.firmwares?.newestSignedFirmware()
-                    else {
-                        markFailed(id: device.identifier,
-                                   error: String(localized: "error.no_signed_firmware"))
-                        continuation.resume()
-                        return
+                    let firmware: IPSWFirmware
+                    if let targetFirmware {
+                        firmware = targetFirmware
+                    } else {
+                        let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                        guard let resolvedFirmware = detailed.firmwares?.newestSignedFirmware()
+                        else {
+                            markFailed(id: device.identifier,
+                                       error: String(localized: "error.no_signed_firmware"))
+                            continuation.resume()
+                            return
+                        }
+                        firmware = resolvedFirmware
                     }
 
                     var task = DeviceDownloadTask(id: device.identifier, device: device, firmware: firmware)

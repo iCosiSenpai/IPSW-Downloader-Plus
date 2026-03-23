@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented in this file.
 
+## [26.0] - 2026-03-23
+
+### Added
+
+- Theme system with automatic, light, and dark appearance modes plus selectable app themes.
+- Dedicated theme behavior tests covering appearance mapping and theme color consistency.
+- Faster dashboard shortcuts for downloading selections, pausing or resuming transfers, opening the download folder, and jumping to Settings.
+
+### Changed
+
+- Updated app version to `26.0`.
+- Refined the main window layout with a clearer dashboard, stronger status badges, and a more structured downloads workspace.
+- Reworked the welcome and initial setup flow with a more stable layout, larger sheets, and improved spacing for permission and destination steps.
+- Expanded localized strings in English and Italian for the new theme and dashboard UI.
+
+### Fixed
+
+- Fixed appearance switching issues where the app could fail to return cleanly between light, dark, and automatic modes.
+- Fixed multiple onboarding regressions, including clipped controls, setup dismissal issues after granting Full Disk Access, and stale permission state in the setup flow.
+- Fixed managed download bulk cancellation so `Cancel all` now targets every cancellable task, not just the currently visible subset.
+- Fixed Full Disk Access refresh behavior so the permission banner updates correctly after returning from System Settings.
+
 ## [1.2.1] - 2026-03-19
 
 ### Changed

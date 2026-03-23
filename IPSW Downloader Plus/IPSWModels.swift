@@ -425,6 +425,15 @@ extension Sequence where Element == IPSWFirmware {
                 return IPSWFirmware.preferred(firmware, over: current) ? firmware : current
             }
     }
+
+    nonisolated func newestSignedFirmware(version: String) -> IPSWFirmware? {
+        self
+            .filter { $0.signed && $0.version == version }
+            .reduce(nil) { current, firmware in
+                guard let current else { return firmware }
+                return IPSWFirmware.preferred(firmware, over: current) ? firmware : current
+            }
+    }
 }
 
 // MARK: - Download Task Info

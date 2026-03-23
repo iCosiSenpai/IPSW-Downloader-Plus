@@ -209,6 +209,22 @@
 "settings.devices.types.title" = "Tipi di dispositivo";
 "settings.devices.minimum" = "minimo richiesto";
 "settings.devices.footer" = "I tipi deselezionati vengono ignorati nei download manuali e automatici. Almeno uno deve restare attivo.";
+"settings.appearance.title" = "Aspetto";
+"settings.appearance.mode.title" = "Aspetto finestra";
+"settings.appearance.mode.footer" = "Automatico segue macOS. Chiaro e Scuro forzano invece lo stile dell'app indipendentemente dal sistema.";
+"settings.appearance.mode.system" = "Automatico";
+"settings.appearance.mode.light" = "Chiaro";
+"settings.appearance.mode.dark" = "Scuro";
+"settings.appearance.theme.title" = "Tema colore";
+"settings.appearance.theme.footer" = "I temi regolano colore accento, evidenze e stile della dashboard in tutta l'app.";
+"settings.appearance.theme.cobalt" = "Cobalto";
+"settings.appearance.theme.cobalt.description" = "Interfaccia blu pulita per l'uso quotidiano.";
+"settings.appearance.theme.forest" = "Forest";
+"settings.appearance.theme.forest.description" = "Enfasi verde piu morbida con contrasto piu calmo.";
+"settings.appearance.theme.sunset" = "Sunset";
+"settings.appearance.theme.sunset.description" = "Look arancione piu caldo e piu energico.";
+"settings.appearance.theme.graphite" = "Grafite";
+"settings.appearance.theme.graphite.description" = "Palette neutra grigio scuro per una workspace piu sobria.";
 
 /* IPSWSettings */
 "schedule.disabled" = "Disabilitato";
@@ -264,18 +280,117 @@
 "activity.devices_failed.title" = "Aggiornamento catalogo dispositivi fallito";
 "activity.download_queued" = "Messo in coda finché non si libera uno slot download.";
 "activity.download_start" = "Avvio tentativo download %1$lld/%2$lld.";
-"activity.download_retry" = "Nuovo tentativo %1$lld/%2$lld tra %3$llds a causa di: %@";
+"activity.download_retry" = "Nuovo tentativo %1$lld/%2$lld tra %3$llds a causa di: %4$@";
 "activity.download_completed" = "Download di %@ (%@) completato con successo.";
 "activity.download_already_present" = "Il firmware %@ (%@) è già presente in locale.";
 "activity.download_cancelled" = "Download annullato dall'utente.";
 "activity.download_removed" = "Rimosso dalla selezione corrente e dalla lista task.";
 "activity.download_restored" = "Ripristinato dalla sessione precedente e rimesso in coda.";
 "activity.auto_launch.start.title" = "Esecuzione pianificata avviata";
-"activity.auto_launch.start.message" = "Controllo di %lld dispositivi nella selezione automatica corrente.";
-"activity.auto_launch.no_signed" = "Nessun firmware firmato disponibile al momento.";
+"activity.auto_launch.start.message" = "Controllo degli iPhone compatibili con iOS %1$@ (%2$lld dispositivi).";
+"activity.auto_launch.no_signed" = "Nessun firmware iOS %@ firmato è attualmente disponibile per questo iPhone.";
 "activity.auto_launch.already_downloaded" = "Il firmware %@ (%@) è già disponibile in locale.";
 "activity.auto_launch.download_started" = "L'esecuzione pianificata ha avviato il download di %@ (%@).";
 "activity.auto_launch.failed" = "Esecuzione pianificata fallita: %@";
 "activity.auto_launch.summary.title" = "Esecuzione pianificata completata";
 "activity.auto_launch.summary.message" = "%lld controllati, %lld scaricati, %lld saltati, %lld falliti.";
 "welcome.title.developer" = "Sviluppato da iCosiSenpai";
+
+/* Ricerca */
+"search.no_results" = "Nessun risultato";
+"search.no_results.hint" = "Prova con un nome o identificatore diverso";
+"search.clear" = "Cancella ricerca";
+"search.empty_list" = "Nessun dispositivo disponibile";
+"sidebar.device_count" = "%lld dispositivi";
+"sidebar.device_count.filtered" = "%1$lld di %2$lld dispositivi";
+
+/* Dialoghi di conferma */
+"confirm.cancel_download.title" = "Annullare il download?";
+"confirm.cancel_download.message" = "Il progresso del download verrà perso e il file non verrà salvato.";
+"confirm.cancel_download.action" = "Annulla download";
+"confirm.remove_device.title" = "Rimuovere il dispositivo?";
+"confirm.remove_device.message" = "Il dispositivo verrà rimosso dalla selezione corrente e qualsiasi download attivo verrà annullato.";
+"confirm.remove_device.action" = "Rimuovi";
+"confirm.cancel_all.title" = "Annullare tutti i download?";
+"confirm.cancel_all.message" = "Tutti i download attivi e in coda verranno annullati. Il progresso verrà perso.";
+"confirm.cancel_all.action" = "Annulla tutto";
+"confirm.clear_report.title" = "Cancellare il report?";
+"confirm.clear_report.message" = "Il report dell'ultima esecuzione pianificata verrà rimosso definitivamente.";
+"confirm.clear_report.action" = "Cancella";
+
+/* Comandi menu */
+"menu.downloads" = "Download";
+"menu.download_selected" = "Scarica selezionati";
+"menu.pause_all" = "Metti tutti in pausa";
+"menu.open_folder" = "Apri cartella download";
+"menu.select_all" = "Seleziona tutti i dispositivi";
+"menu.deselect_all" = "Deseleziona tutti i dispositivi";
+
+/* Progresso globale */
+"detail.global_progress" = "Download di %1$lld — %2$lld%%";
+
+/* Menu contestuale */
+"context.copy_identifier" = "Copia identificatore";
+"context.copy_name" = "Copia nome";
+"context.select" = "Seleziona";
+"context.deselect" = "Deseleziona";
+
+/* Accessibilità */
+"accessibility.selected" = "Selezionato";
+"accessibility.downloading" = "Download in corso %lld%%";
+
+/* Stato vuoto dettaglio */
+"detail.empty.step1" = "Seleziona i dispositivi dalla sidebar";
+"detail.empty.step2" = "Clicca Scarica tutti per avviare il batch";
+"detail.empty.step3" = "Monitora il progresso qui";
+
+/* Round 3 — Chip filtro */
+"filter.all" = "Tutti";
+
+/* Round 3 — Riprendi / Riprova */
+"download.resume_all" = "Riprendi tutti";
+"download.retry_all" = "Riprova tutti";
+
+/* Round 3 — Sottotitolo finestra */
+"window.subtitle.downloading" = "Download di %1$lld — %2$lld%%";
+
+/* Round 3 — Menu contestuale firmware locale */
+"context.copy_path" = "Copia percorso file";
+"context.move_to_trash" = "Sposta nel Cestino";
+"context.copy_download_url" = "Copia URL download";
+
+/* Round 3 — Comandi menu */
+"menu.resume_all" = "Riprendi tutti in pausa";
+"menu.retry_failed" = "Riprova falliti";
+
+/* Round 4 — Cancella completati */
+"download.clear_completed" = "Cancella completati";
+"activity.cleared_completed.title" = "Download completati rimossi";
+"activity.cleared_completed.message" = "%lld download completati rimossi dalla lista.";
+
+/* Round 4 — Selezione sidebar */
+"sidebar.selection_badge" = "%lld selezionati";
+"sidebar.invert_selection.help" = "Inverti selezione";
+"menu.invert_selection" = "Inverti selezione";
+
+/* Round 4 — Log attività */
+"activity.copy_entry" = "Copia voce";
+"activity.clear" = "Cancella log";
+
+/* Round 4 — Dimensione download stimata */
+"detail.estimated_size" = "Dimensione stimata: %@";
+"detail.estimated_size.approx" = "Dimensione stimata: ~%@";
+"dashboard.eyebrow" = "Workspace";
+"dashboard.title" = "Centro controllo download";
+"dashboard.summary.loading" = "Aggiornamento del catalogo dispositivi supportati tramite API.";
+"dashboard.summary.ready" = "%lld dispositivi pronti per filtro, selezione e download.";
+"dashboard.metric.devices" = "Visibili";
+"dashboard.metric.selected" = "Selezionati";
+"dashboard.metric.active" = "Attivi";
+"dashboard.badge.sort" = "Ordine";
+"dashboard.badge.selection" = "Selezione";
+"dashboard.badge.theme" = "Tema";
+"dashboard.action.download" = "Scarica selezionati";
+"dashboard.action.pause_resume" = "Pausa o riprendi";
+"dashboard.action.folder" = "Apri cartella";
+"dashboard.action.settings" = "Impostazioni";
