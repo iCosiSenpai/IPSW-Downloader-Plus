@@ -23,9 +23,12 @@ It can:
 
 ## Features
 
-- Device sidebar with search, filters, and sorting
+- Dashboard header with live metrics (devices, selected, active downloads)
+- Device sidebar with search, filters, sorting, and quick-select templates
 - Batch download flow for selected devices
-- Download center grouped by state
+- Download center grouped by state (active, paused, ready, completed, failed)
+- Global progress bar with transfer speed and ETA
+- Customizable themes with accent colors and gradients
 - Persisted queue, activity log, and resumed downloads after relaunch
 - Custom download folder support
 - Full Disk Access guidance for default Apple folders
@@ -37,15 +40,15 @@ It can:
 
 ## Requirements
 
-- macOS
-- Xcode
+- macOS Sonoma 14.0 or later
 - Full Disk Access if you want to write directly to Apple's default firmware folders
 
-## Build
+## Build from Source
 
-1. Open `IPSW Downloader Plus.xcodeproj` in Xcode.
-2. Select the `IPSW Downloader Plus` scheme.
-3. Build and run.
+1. Install Xcode 16 or later.
+2. Open `IPSW Downloader Plus.xcodeproj`.
+3. Select the `IPSW Downloader Plus` scheme.
+4. Build and run.
 
 ## Default Download Locations
 
