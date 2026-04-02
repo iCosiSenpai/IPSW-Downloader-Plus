@@ -16,9 +16,16 @@ build/
 Products/
 *.app
 *.ipa
-*.dmg
 *.dSYM.zip
 *.dSYM
+
+# DMG (allow the release DMG tracked with git add -f)
+*.dmg
+
+# Backup / temp files
+*.bak
+*.swp
+*.orig
 
 # Swift Package Manager
 .build/
