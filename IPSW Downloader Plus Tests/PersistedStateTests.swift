@@ -200,4 +200,36 @@ struct PersistedStateTests {
         #expect(report.hadFailures)
         #expect(report.completionKind == .warning)
     }
+
+    @Test
+    func wakeScheduleCommandUsesTwoMinuteOffsetAndSortedDays() {
+        let command = WakeScheduler.scheduleWakeCommand(hour: 3, minute: 0, days: [2, 4, 6])
+
+        #expect(command == "/usr/bin/pmset repeat wakeorpoweron MWF 02:58:00")
+    }
+
+    @Test
+    func wakeScheduleCommandDefaultsToEveryDayAndWrapsMidnight() {
+        let command = WakeScheduler.scheduleWakeCommand(hour: 0, minute: 1, days: [])
+
+        #expect(command == "/usr/bin/pmset repeat wakeorpoweron MTWRFSU 23:59:00")
+    }
+
+    @Test
+    func launchAgentCalendarIntervalsMatchesSelectedDays() {
+        let intervals = SchedulingService.launchAgentCalendarIntervals(hour: 5, minute: 30, days: [2, 6])
+
+        #expect(intervals.count == 2)
+        #expect(intervals[0]["Weekday"] == 2)
+        #expect(intervals[0]["Hour"] == 5)
+        #expect(intervals[0]["Minute"] == 30)
+        #expect(intervals[1]["Weekday"] == 6)
+    }
+
+    @Test
+    func launchAgentCalendarIntervalsUsesDailyScheduleWhenNoDaysSelected() {
+        let intervals = SchedulingService.launchAgentCalendarIntervals(hour: 1, minute: 15, days: [])
+
+        #expect(intervals == [["Hour": 1, "Minute": 15]])
+    }
 }

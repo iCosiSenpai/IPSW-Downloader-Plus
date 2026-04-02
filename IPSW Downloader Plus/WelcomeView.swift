@@ -7,21 +7,22 @@ import SwiftUI
 import AppKit
 
 struct WelcomeView: View {
+    let selectedTheme: AppTheme
+    @Binding var showWelcomeOnStartup: Bool
     let onContinue: () -> Void
 
-    @ObservedObject private var settings = AppSettings.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
-            ThemeCanvasBackground(theme: settings.selectedTheme)
+            ThemeCanvasBackground(theme: selectedTheme)
 
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .top, spacing: 16) {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.system(size: 52))
-                            .foregroundStyle(settings.selectedTheme.tintColor)
+                            .foregroundStyle(selectedTheme.tintColor)
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text(String(localized: "welcome.title"))
@@ -31,15 +32,15 @@ struct WelcomeView: View {
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             HStack(spacing: 10) {
-                                Link(String(localized: "welcome.title.developer"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                                Link(String(localized: "welcome.title.developer"), destination: AppLinks.github)
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(settings.selectedTheme.tintColor)
-                                Text(settings.selectedTheme.localizedTitle)
+                                    .foregroundStyle(selectedTheme.tintColor)
+                                Text(selectedTheme.localizedTitle)
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
-                                    .background(settings.selectedTheme.tintColor.opacity(0.12), in: Capsule())
-                                    .foregroundStyle(settings.selectedTheme.tintColor)
+                                    .background(selectedTheme.tintColor.opacity(0.12), in: Capsule())
+                                    .foregroundStyle(selectedTheme.tintColor)
                             }
                         }
                     }
@@ -72,14 +73,14 @@ struct WelcomeView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
                 .padding(28)
-                .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
-                .background(settings.selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 24))
+                .themePanelBackground(theme: selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
+                .background(selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 24))
                 .padding(20)
 
                 Divider()
 
                 HStack(alignment: .center, spacing: 16) {
-                    Toggle(isOn: $settings.showWelcomeOnStartup) {
+                    Toggle(isOn: $showWelcomeOnStartup) {
                         Text(String(localized: "welcome.cta.show_on_startup"))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -99,11 +100,7 @@ struct WelcomeView: View {
                 .frame(minHeight: 64)
             }
         }
-        .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
-        .overlay {
-            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
-                .allowsHitTesting(false)
-        }
+        .background(selectedTheme.windowBackgroundColor(for: colorScheme))
         .frame(width: 680, height: 500)
     }
 
@@ -127,12 +124,15 @@ struct WelcomeView: View {
 }
 
 struct InitialSetupView: View {
+    let selectedTheme: AppTheme
+    @Binding var showWelcomeOnStartup: Bool
+    @Binding var customDownloadDirectoryPath: String
     @Binding var fullDiskAccessStatus: FullDiskAccessStatus
+    let chooseCustomDownloadDirectory: @MainActor () -> Void
+    let resetCustomDownloadDirectory: () -> Void
     let onFinish: () -> Void
 
-    @Environment(\.openWindow) private var openWindow
     @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var settings = AppSettings.shared
     @State private var selectedStep = 0
 
     private let stepTitles = [
@@ -143,7 +143,7 @@ struct InitialSetupView: View {
 
     var body: some View {
         ZStack {
-            ThemeCanvasBackground(theme: settings.selectedTheme)
+            ThemeCanvasBackground(theme: selectedTheme)
 
             VStack(spacing: 0) {
                 HStack(alignment: .top, spacing: 14) {
@@ -191,7 +191,7 @@ struct InitialSetupView: View {
 
                 HStack {
                     Button(String(localized: "setup.open.settings")) {
-                        openWindow(id: "settings")
+                        SettingsPresenter.open()
                     }
                     .buttonStyle(.bordered)
 
@@ -221,14 +221,10 @@ struct InitialSetupView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
             }
-            .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
+            .themePanelBackground(theme: selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
             .padding(18)
         }
-        .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
-        .overlay {
-            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
-                .allowsHitTesting(false)
-        }
+        .background(selectedTheme.windowBackgroundColor(for: colorScheme))
         .frame(width: 720, height: 620)
     }
 
@@ -270,10 +266,10 @@ struct InitialSetupView: View {
             VStack(alignment: .leading, spacing: 16) {
                 setupStatusBanner(
                     title: String(localized: "setup.folders.banner"),
-                    message: settings.isUsingCustomDownloadDirectory
-                        ? settings.customDownloadDirectoryDisplayPath
+                    message: isUsingCustomDownloadDirectory
+                        ? customDownloadDirectoryDisplayPath
                         : String(localized: "setup.summary.destination_default"),
-                    tint: settings.isUsingCustomDownloadDirectory ? .orange : .blue
+                    tint: isUsingCustomDownloadDirectory ? .orange : .blue
                 )
 
                 Text(String(localized: "setup.folders.body"))
@@ -296,22 +292,22 @@ struct InitialSetupView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(String(localized: "settings.general.folders.custom_title"))
                         .font(.headline)
-                    Text(settings.customDownloadDirectoryDisplayPath)
+                    Text(customDownloadDirectoryDisplayPath)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
 
                     HStack(spacing: 10) {
                         Button(String(localized: "settings.general.folders.choose")) {
-                            settings.chooseCustomDownloadDirectory()
+                            chooseCustomDownloadDirectory()
                         }
                         .buttonStyle(.borderedProminent)
 
                         Button(String(localized: "settings.general.folders.reset")) {
-                            settings.resetCustomDownloadDirectory()
+                            resetCustomDownloadDirectory()
                         }
                         .buttonStyle(.bordered)
-                        .disabled(!settings.isUsingCustomDownloadDirectory)
+                        .disabled(!isUsingCustomDownloadDirectory)
                     }
                 }
                 .padding(14)
@@ -340,13 +336,13 @@ struct InitialSetupView: View {
                 )
                 summaryRow(
                     title: String(localized: "setup.summary.destination"),
-                    value: settings.isUsingCustomDownloadDirectory
-                        ? settings.customDownloadDirectoryDisplayPath
+                    value: isUsingCustomDownloadDirectory
+                        ? customDownloadDirectoryDisplayPath
                         : String(localized: "setup.summary.destination_default")
                 )
                 summaryRow(
                     title: String(localized: "setup.summary.welcome"),
-                    value: settings.showWelcomeOnStartup
+                    value: showWelcomeOnStartup
                         ? String(localized: "setup.summary.enabled")
                         : String(localized: "setup.summary.disabled")
                 )
@@ -431,7 +427,7 @@ struct InitialSetupView: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(14)
-        .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
+        .background(selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder
@@ -445,7 +441,16 @@ struct InitialSetupView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
+        .background(selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var isUsingCustomDownloadDirectory: Bool {
+        !customDownloadDirectoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var customDownloadDirectoryDisplayPath: String {
+        AppSettings.storedCustomDownloadDirectoryURL()?.path
+            ?? String(localized: "settings.general.folders.default_path")
     }
 }
 

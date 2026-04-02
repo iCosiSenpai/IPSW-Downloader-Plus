@@ -4,7 +4,21 @@
 //
 
 import SwiftUI
-import AppKit
+
+enum AppCompatibility {
+    static var usesLegacySwiftUIWorkarounds: Bool {
+        #if arch(x86_64)
+        true
+        #else
+        false
+        #endif
+    }
+}
+
+enum AppLinks {
+    static let github = URL(string: "https://github.com/iCosiSenpai") ?? URL(fileURLWithPath: NSHomeDirectory())
+    static let support = URL(string: "https://paypal.me/AlessioCosi") ?? URL(fileURLWithPath: NSHomeDirectory())
+}
 
 enum AppAppearanceMode: String, CaseIterable, Identifiable {
     case system
@@ -157,27 +171,6 @@ enum AppTheme: String, CaseIterable, Identifiable {
         canvasColors(for: colorScheme).first ?? .clear
     }
 
-    func windowBackgroundNSColor(for colorScheme: ColorScheme) -> NSColor {
-        switch (self, colorScheme) {
-        case (.cobalt, .dark):
-            return NSColor(calibratedRed: 0.07, green: 0.09, blue: 0.12, alpha: 1)
-        case (.forest, .dark):
-            return NSColor(calibratedRed: 0.07, green: 0.09, blue: 0.10, alpha: 1)
-        case (.sunset, .dark):
-            return NSColor(calibratedRed: 0.10, green: 0.09, blue: 0.08, alpha: 1)
-        case (.graphite, .dark):
-            return NSColor(calibratedRed: 0.08, green: 0.08, blue: 0.09, alpha: 1)
-        case (.cobalt, _):
-            return NSColor(calibratedRed: 0.95, green: 0.97, blue: 0.99, alpha: 1)
-        case (.forest, _):
-            return NSColor(calibratedRed: 0.95, green: 0.98, blue: 0.96, alpha: 1)
-        case (.sunset, _):
-            return NSColor(calibratedRed: 0.99, green: 0.96, blue: 0.93, alpha: 1)
-        case (.graphite, _):
-            return NSColor(calibratedRed: 0.95, green: 0.95, blue: 0.96, alpha: 1)
-        }
-    }
-
     func surfaceColor(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
             ? Color.white.opacity(0.055)
@@ -204,15 +197,17 @@ struct ThemeCanvasBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(colors: theme.canvasColors(for: colorScheme), startPoint: .topLeading, endPoint: .bottomTrailing)
-            LinearGradient(
-                colors: [
-                    theme.tintColor.opacity(colorScheme == .dark ? 0.10 : 0.05),
-                    .clear
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .blendMode(.plusLighter)
+            if !AppCompatibility.usesLegacySwiftUIWorkarounds {
+                LinearGradient(
+                    colors: [
+                        theme.tintColor.opacity(colorScheme == .dark ? 0.10 : 0.05),
+                        .clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .blendMode(.plusLighter)
+            }
         }
         .ignoresSafeArea()
     }
@@ -294,55 +289,5 @@ extension View {
 
     func themeMetricCardBackground(tint: Color, cornerRadius: CGFloat = 18) -> some View {
         modifier(ThemeMetricCardBackground(tint: tint, cornerRadius: cornerRadius))
-    }
-}
-
-struct ThemeWindowConfigurator: NSViewRepresentable {
-    let theme: AppTheme
-    let colorScheme: ColorScheme
-
-    func makeNSView(context: Context) -> NSView {
-        ConfiguratorView(theme: theme, colorScheme: colorScheme)
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        guard let view = nsView as? ConfiguratorView else { return }
-        view.theme = theme
-        view.colorScheme = colorScheme
-    }
-
-    private final class ConfiguratorView: NSView {
-        var theme: AppTheme {
-            didSet { applyWindowBackgroundIfNeeded() }
-        }
-
-        var colorScheme: ColorScheme {
-            didSet { applyWindowBackgroundIfNeeded() }
-        }
-
-        init(theme: AppTheme, colorScheme: ColorScheme) {
-            self.theme = theme
-            self.colorScheme = colorScheme
-            super.init(frame: .zero)
-        }
-
-        @available(*, unavailable)
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            applyWindowBackgroundIfNeeded()
-        }
-
-        private func applyWindowBackgroundIfNeeded() {
-            guard let window else { return }
-            let backgroundColor = theme.windowBackgroundNSColor(for: colorScheme)
-            if window.backgroundColor != backgroundColor {
-                window.backgroundColor = backgroundColor
-            }
-            window.isOpaque = true
-        }
     }
 }

@@ -12,14 +12,12 @@ struct ContentView: View {
     @ObservedObject var viewModel: IPSWViewModel
     @ObservedObject private var settings = AppSettings.shared
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.openWindow) private var openWindow
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         ZStack {
             ThemeCanvasBackground(theme: settings.selectedTheme)
 
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
                 contentHeader
                     .padding(.horizontal, 18)
                     .padding(.top, 18)
@@ -31,13 +29,22 @@ struct ContentView: View {
                 }
                 .padding(8)
                 .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(settings.selectedTheme.surfaceColor(for: colorScheme).opacity(0.72))
+                        .shadow(color: .black.opacity(colorScheme == .dark ? 0.20 : 0.08), radius: 18, y: 12)
+                )
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)
             }
         }
         .frame(minWidth: 980, minHeight: 600)
         .navigationTitle(String(localized: "sidebar.nav_title"))
-        .navigationSubtitle(viewModel.windowSubtitle ?? "")
+        .background {
+            if !AppCompatibility.usesLegacySwiftUIWorkarounds {
+                WindowChromeConfigurator()
+            }
+        }
         .task {
             await viewModel.loadDevices()
         }
@@ -45,81 +52,92 @@ struct ContentView: View {
 
     @ViewBuilder
     private var navigationContainer: some View {
-        if #available(macOS 13.0, *) {
-            NavigationSplitView(columnVisibility: $columnVisibility) {
+        if AppCompatibility.usesLegacySwiftUIWorkarounds {
+            HSplitView {
+                SidebarView(viewModel: viewModel)
+                    .frame(minWidth: 280, idealWidth: 320, maxWidth: 480)
+                DetailView(viewModel: viewModel)
+                    .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+            }
+        } else {
+            NavigationSplitView {
                 SidebarView(viewModel: viewModel)
             } detail: {
                 DetailView(viewModel: viewModel)
             }
             .navigationSplitViewStyle(.balanced)
-        } else {
-            NavigationView {
-                SidebarView(viewModel: viewModel)
-                DetailView(viewModel: viewModel)
-            }
         }
     }
 
     private var contentHeader: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(String(localized: "dashboard.eyebrow"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(settings.selectedTheme.accentColor)
-                    .textCase(.uppercase)
-                Text(String(localized: "dashboard.title"))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                Text(headerSummary)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 8) {
-                    headerBadge(title: String(localized: "dashboard.badge.sort"), value: viewModel.activeSortSummary)
-                    headerBadge(title: String(localized: "dashboard.badge.selection"), value: "\(viewModel.selectedDeviceIDs.count)")
-                    headerBadge(title: String(localized: "dashboard.badge.theme"), value: settings.selectedTheme.localizedTitle)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(localized: "dashboard.eyebrow"))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(settings.selectedTheme.accentColor)
+                        .textCase(.uppercase)
+                    Text(String(localized: "dashboard.title"))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                    Text(headerSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                HStack(spacing: 10) {
-                    Button(String(localized: "dashboard.action.download")) {
+                Spacer(minLength: 12)
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    HStack(spacing: 8) {
+                        DashboardMetricCard(title: String(localized: "dashboard.metric.devices"), value: "\(viewModel.filteredDevices.count)", tint: settings.selectedTheme.tintColor)
+                        DashboardMetricCard(title: String(localized: "dashboard.metric.selected"), value: "\(viewModel.selectedDeviceIDs.count)", tint: settings.selectedTheme.accentColor)
+                        DashboardMetricCard(title: String(localized: "dashboard.metric.active"), value: "\(activeDownloadCount)", tint: .orange)
+                    }
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    dashboardActionButton(
+                        title: String(localized: "dashboard.action.download"),
+                        systemImage: "arrow.down.circle.fill",
+                        prominent: true,
+                        isDisabled: !viewModel.hasSelection
+                    ) {
                         viewModel.downloadSelectedDevices()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!viewModel.hasSelection)
-
-                    Button(String(localized: "dashboard.action.pause_resume")) {
-                        if viewModel.hasActiveDownloads {
-                            viewModel.pauseAllManagedDownloads()
-                        } else {
-                            viewModel.resumeAllPausedDownloads()
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!viewModel.hasActiveDownloads && !viewModel.hasPausedDownloads)
-
-                    Button(String(localized: "dashboard.action.folder")) {
-                        viewModel.openDownloadFolder()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button(String(localized: "dashboard.action.settings")) {
-                        openWindow(id: "settings")
-                    }
-                    .buttonStyle(.bordered)
+                    headerBadge(title: String(localized: "dashboard.badge.sort"), value: viewModel.activeSortSummary)
+                    headerBadge(title: String(localized: "dashboard.badge.theme"), value: settings.selectedTheme.localizedTitle)
                 }
             }
 
-            Spacer(minLength: 12)
-
-            HStack(spacing: 12) {
-                DashboardMetricCard(title: String(localized: "dashboard.metric.devices"), value: "\(viewModel.filteredDevices.count)", tint: settings.selectedTheme.tintColor)
-                DashboardMetricCard(title: String(localized: "dashboard.metric.selected"), value: "\(viewModel.selectedDeviceIDs.count)", tint: settings.selectedTheme.accentColor)
-                DashboardMetricCard(title: String(localized: "dashboard.metric.active"), value: "\(activeDownloadCount)", tint: .orange)
+            if viewModel.hasActiveDownloads {
+                VStack(alignment: .leading, spacing: 5) {
+                    ProgressView(value: viewModel.globalProgressFraction)
+                        .progressViewStyle(.linear)
+                    HStack {
+                        Text(viewModel.globalProgressTitle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if !viewModel.downloadStatsText.isEmpty {
+                            Text(viewModel.downloadStatsText)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 14))
             }
         }
-        .padding(20)
-        .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 26)
-        .background(settings.selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 26))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 22)
+        .background(settings.selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 22))
     }
 
     private func headerBadge(title: String, value: String) -> some View {
@@ -132,13 +150,25 @@ struct ContentView: View {
                 .lineLimit(1)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func dashboardActionButton(title: String, systemImage: String, prominent: Bool = false, isDisabled: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.headline.weight(.semibold))
+                .padding(.horizontal, 6)
+                .frame(minHeight: 42)
+        }
+        .modifier(DashboardActionButtonStyle(prominent: prominent))
+        .controlSize(.large)
+        .disabled(isDisabled)
     }
 
     private var footerLinks: some View {
         HStack(spacing: 16) {
-            Link(destination: URL(string: "https://paypal.me/AlessioCosi")!) {
+            Link(destination: AppLinks.support) {
                 HStack(spacing: 8) {
                     Text("PayPal")
                         .font(.caption.weight(.bold))
@@ -164,7 +194,7 @@ struct ContentView: View {
 
             Spacer()
 
-            Link(destination: URL(string: "https://github.com/iCosiSenpai")!) {
+            Link(destination: AppLinks.github) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .font(.callout)
@@ -213,6 +243,18 @@ struct ContentView: View {
 
 }
 
+private struct DashboardActionButtonStyle: ViewModifier {
+    let prominent: Bool
+
+    func body(content: Content) -> some View {
+        if prominent {
+            content.buttonStyle(.borderedProminent)
+        } else {
+            content.buttonStyle(.bordered)
+        }
+    }
+}
+
 private struct DashboardMetricCard: View {
     let title: String
     let value: String
@@ -220,18 +262,40 @@ private struct DashboardMetricCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .frame(minWidth: 110, alignment: .leading)
-        .themeMetricCardBackground(tint: tint, cornerRadius: 18)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minWidth: 104, alignment: .leading)
+        .themeMetricCardBackground(tint: tint, cornerRadius: 16)
+    }
+}
+
+private struct WindowChromeConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            configureWindow(for: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            configureWindow(for: nsView)
+        }
+    }
+
+    private func configureWindow(for view: NSView) {
+        guard let window = view.window else { return }
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = false
     }
 }
 
@@ -239,10 +303,16 @@ private struct DashboardMetricCard: View {
 
 struct SidebarView: View {
     @ObservedObject var viewModel: IPSWViewModel
-    @Environment(\.openWindow) private var openWindow
+    @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
+            sidebarUtilityBar
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+
             // Search Bar
             HStack {
                 Image(systemName: "magnifyingglass")
@@ -257,9 +327,13 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(8)
-            .background(.background.opacity(0.6))
-            .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
+            )
+            .padding(.horizontal, 8)
+            .padding(.bottom, 8)
 
             HStack(spacing: 8) {
                 Picker(String(localized: "sidebar.sort.label"), selection: $viewModel.sortOption) {
@@ -289,8 +363,12 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(.bar)
-            .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
+            )
+            .padding(.horizontal, 8)
+            .padding(.bottom, 6)
 
             // Device type filter chips
             if !viewModel.availableDeviceTypeFilters.isEmpty {
@@ -320,8 +398,8 @@ struct SidebarView: View {
                     .padding(.horizontal, 8)
                 }
                 .padding(.vertical, 4)
-                .background(.bar)
-                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 6)
             }
 
             // Device List
@@ -366,18 +444,37 @@ struct SidebarView: View {
                 Spacer()
             } else if viewModel.filteredDevices.isEmpty {
                 Spacer()
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     Image(systemName: "tray")
                         .font(.system(size: 36))
                         .foregroundStyle(.secondary)
                     Text(String(localized: "search.empty_list"))
                         .font(.headline)
                         .foregroundStyle(.secondary)
+                    Text(emptySidebarHint)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+
+                    HStack(spacing: 8) {
+                        if viewModel.activeDeviceTypeFilter != nil {
+                            Button(String(localized: "filter.all")) {
+                                viewModel.activeDeviceTypeFilter = nil
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
+                        Button(String(localized: "sidebar.retry")) {
+                            Task { await viewModel.loadDevices() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.isLoadingDevices)
+                    }
                 }
                 .padding()
                 Spacer()
             } else {
-                List(viewModel.filteredDevices, selection: .constant(nil as String?)) { device in
+                List(viewModel.filteredDevices) { device in
                     DeviceRowView(device: device, viewModel: viewModel)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                 }
@@ -389,14 +486,6 @@ struct SidebarView: View {
 
             // Bottom toolbar
             HStack(spacing: 6) {
-                Button {
-                    Task { await viewModel.loadDevices() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.plain)
-                .help(String(localized: "sidebar.refresh.help"))
-
                 if viewModel.hasSelection {
                     Text(String(format: String(localized: "sidebar.selection_badge"), viewModel.selectedDeviceIDs.count))
                         .font(.caption2.weight(.semibold))
@@ -432,82 +521,114 @@ struct SidebarView: View {
                       : String(localized: "sidebar.select_all.help"))
             }
             .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
+            )
+            .padding(8)
         }
-        .modifier(CompatibleSidebarWidth())
+        .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 480)
         .navigationTitle(String(localized: "sidebar.nav_title"))
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .navigation) {
+                Button {
+                    Task { await viewModel.loadDevices() }
+                } label: {
+                    Label(String(localized: "sidebar.refresh.help"), systemImage: "arrow.clockwise")
+                }
+                .labelStyle(.iconOnly)
+                .disabled(viewModel.isLoadingDevices)
+                .help(String(localized: "sidebar.refresh.help"))
+
                 Button {
                     viewModel.openDownloadFolder()
                 } label: {
                     Label(String(localized: "sidebar.toolbar.download_folder"), systemImage: "folder")
                 }
+                .labelStyle(.iconOnly)
                 .help(String(localized: "sidebar.toolbar.download_folder.help"))
-            }
-            ToolbarItem(placement: .primaryAction) {
+
                 Button {
-                    openWindow(id: "settings")
+                    SettingsPresenter.open()
                 } label: {
-                    Label(String(localized: "settings.tab.general"), systemImage: "gearshape")
+                    Label(String(localized: "settings.menu.open"), systemImage: "gearshape")
                 }
+                .labelStyle(.iconOnly)
                 .help(String(localized: "sidebar.toolbar.settings.help"))
             }
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button {
-                        viewModel.applyTemplateLatestIOS()
-                    } label: {
-                        if viewModel.isApplyingLatestIOSTemplate {
-                            Label(String(localized: "sidebar.template.loading"), systemImage: "hourglass")
-                        } else {
-                            Label(String(localized: "sidebar.template.latest_ios"), systemImage: "iphone")
-                        }
-                    }
-                    .disabled(viewModel.isApplyingLatestIOSTemplate)
-                    Button {
-                        viewModel.applyTemplateVintage()
-                    } label: {
-                        Label(String(localized: "sidebar.template.vintage"), systemImage: "clock.arrow.circlepath")
-                    }
+
+        }
+        .alert(String(localized: "sidebar.template.error_title"), isPresented: Binding(
+            get: { viewModel.templateError != nil },
+            set: { if !$0 { viewModel.templateError = nil } }
+        )) {
+            Button("OK") { viewModel.templateError = nil }
+        } message: {
+            Text(viewModel.templateError ?? "")
+        }
+    }
+
+    private var sidebarUtilityBar: some View {
+        HStack(spacing: 8) {
+            Text(String(localized: "sidebar.nav_title"))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
+
+            Menu {
+                Button {
+                    viewModel.applyTemplateLatestIOS()
                 } label: {
                     if viewModel.isApplyingLatestIOSTemplate {
-                        ProgressView().controlSize(.small)
+                        Label(String(localized: "sidebar.template.loading"), systemImage: "hourglass")
                     } else {
-                        Label(String(localized: "sidebar.toolbar.template"), systemImage: "wand.and.stars")
+                        Label(String(localized: "sidebar.template.latest_ios"), systemImage: "iphone")
                     }
                 }
-                .help(String(localized: "sidebar.toolbar.template.help"))
-                .alert(String(localized: "sidebar.template.error_title"), isPresented: Binding(
-                    get: { viewModel.templateError != nil },
-                    set: { if !$0 { viewModel.templateError = nil } }
-                )) {
-                    Button("OK") { viewModel.templateError = nil }
-                } message: {
-                    Text(viewModel.templateError ?? "")
+                .disabled(viewModel.isApplyingLatestIOSTemplate)
+
+                Button {
+                    viewModel.applyTemplateVintage()
+                } label: {
+                    Label(String(localized: "sidebar.template.vintage"), systemImage: "clock.arrow.circlepath")
                 }
+            } label: {
+                HStack(spacing: 6) {
+                    if viewModel.isApplyingLatestIOSTemplate {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "wand.and.stars")
+                    }
+                    Text(String(localized: "sidebar.toolbar.template"))
+                        .font(.caption.weight(.semibold))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 1)
+                )
             }
+            .menuStyle(.borderlessButton)
+            .help(String(localized: "sidebar.toolbar.template.help"))
         }
+        .padding(.horizontal, 2)
     }
 
-}
-
-private struct CompatibleSidebarWidth: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 13.0, *) {
-            content.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 480)
-        } else {
-            content.frame(minWidth: 280, idealWidth: 320, maxWidth: 480)
+    private var emptySidebarHint: String {
+        if viewModel.activeDeviceTypeFilter != nil {
+            return viewModel.activeSortSummary
         }
-    }
-}
-
-private struct CompatibleListRowSeparatorHidden: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 13.0, *) {
-            content.listRowSeparator(.hidden)
-        } else {
-            content
+        if viewModel.isLoadingDevices {
+            return String(localized: "dashboard.summary.loading")
         }
+        return viewModel.deviceCountLabel
     }
 }
 
@@ -653,6 +774,8 @@ struct DeviceRowView: View {
 
 struct DetailView: View {
     @ObservedObject var viewModel: IPSWViewModel
+    @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isActivityCollapsed = false
 
     private var managedDevices: [IPSWDevice] {
@@ -707,7 +830,10 @@ struct DetailView: View {
     }
 
     private var recentActivityEntries: [ActivityLogEntry] {
-        viewModel.recentActivityEntries.filter { entry in
+        guard !viewModel.selectedDeviceIDs.isEmpty else {
+            return viewModel.recentActivityEntries
+        }
+        return viewModel.recentActivityEntries.filter { entry in
             guard let identifier = entry.deviceIdentifier else { return true }
             return viewModel.selectedDeviceIDs.contains(identifier)
         }
@@ -723,91 +849,101 @@ struct DetailView: View {
         )
     }
 
+    private var isShowingEmptyState: Bool {
+        viewModel.selectedDeviceIDs.isEmpty && managedDevices.isEmpty && viewModel.downloadedFirmware.isEmpty
+    }
+
+    private var primaryControlTitle: String {
+        if viewModel.hasActiveDownloads {
+            return String(localized: "download.pause_all")
+        }
+        return String(localized: "download.resume_all")
+    }
+
+    private var primaryControlSystemImage: String {
+        viewModel.hasActiveDownloads ? "pause.fill" : "play.fill"
+    }
+
     var body: some View {
-        if viewModel.selectedDeviceIDs.isEmpty && managedDevices.isEmpty && viewModel.downloadedFirmware.isEmpty {
-            VStack(spacing: 16) {
-                Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
-                Text(String(localized: "detail.empty"))
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 10) {
-                    instructionRow(number: "1", text: String(localized: "detail.empty.step1"))
-                    instructionRow(number: "2", text: String(localized: "detail.empty.step2"))
-                    instructionRow(number: "3", text: String(localized: "detail.empty.step3"))
+        if isShowingEmptyState {
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                    Text(String(localized: "detail.empty"))
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 10) {
+                        instructionRow(number: "1", text: String(localized: "detail.empty.step1"))
+                        instructionRow(number: "2", text: String(localized: "detail.empty.step2"))
+                        instructionRow(number: "3", text: String(localized: "detail.empty.step3"))
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+
+                if !recentActivityEntries.isEmpty {
+                    Divider()
+
+                    List {
+                        ActivitySectionList(entries: recentActivityEntries, isCollapsed: $isActivityCollapsed) {
+                            viewModel.clearActivityLog()
+                        }
+                    }
+                    .listStyle(.inset)
+                    .scrollContentBackground(.hidden)
+                    .background(Color(NSColor.controlBackgroundColor))
+                } else {
+                    Spacer()
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 0) {
                 // Header
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(String(format: String(localized: "detail.header.selected"), viewModel.selectedDeviceIDs.count))
-                                .font(.headline)
+                                .font(.subheadline.weight(.semibold))
                             Text(headerStatusLine)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        if let estimated = viewModel.estimatedTotalDownloadSize {
-                            Text(estimated)
                                 .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                        }
-                        Spacer()
-                        Button {
-                            viewModel.openDownloadFolder()
-                        } label: {
-                            Label(String(localized: "detail.open_folder"), systemImage: "folder")
-                        }
-                        .buttonStyle(.bordered)
-                        Button {
-                            viewModel.downloadSelectedDevices()
-                        } label: {
-                            Label(String(localized: "detail.download_all"), systemImage: "arrow.down.circle.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(viewModel.selectedDeviceIDs.isEmpty)
-                    }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            SummaryChip(title: String(localized: "detail.section.managed"), count: managedDevices.count, color: .blue)
-                            SummaryChip(title: String(localized: "detail.section.active"), count: activeDevices.count, color: .blue)
-                            SummaryChip(title: String(localized: "detail.section.paused"), count: pausedDevices.count, color: .orange)
-                            SummaryChip(title: String(localized: "detail.section.ready"), count: readyDevices.count, color: .secondary)
-                            SummaryChip(title: String(localized: "detail.section.completed"), count: completedDevices.count, color: .green)
-                            SummaryChip(title: String(localized: "detail.section.failed"), count: failedDevices.count, color: .red)
-                            SummaryChip(title: String(localized: "detail.section.local"), count: viewModel.downloadedFirmware.count, color: .mint)
-                        }
-                        .animation(.default, value: managedDevices.count)
-                    }
-
-                    if viewModel.hasActiveDownloads {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ProgressView(value: viewModel.globalProgressFraction)
-                                .progressViewStyle(.linear)
-                            HStack {
-                                Text(viewModel.globalProgressTitle)
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                if !viewModel.downloadStatsText.isEmpty {
-                                    Text(viewModel.downloadStatsText)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .monospacedDigit()
-                                }
+                                .foregroundStyle(.secondary)
+                            if let estimated = viewModel.estimatedTotalDownloadSize {
+                                Text(estimated)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
                             }
                         }
+                        Spacer()
+
+                    }
+
+                    HStack(spacing: 8) {
+                        SummaryChip(title: String(localized: "detail.section.managed"), count: managedDevices.count, color: .blue)
+                        SummaryChip(title: String(localized: "detail.section.paused"), count: pausedDevices.count, color: .orange)
+                        SummaryChip(title: String(localized: "detail.section.failed"), count: failedDevices.count, color: .red)
+                    }
+
+                    if !managedDevices.isEmpty {
+                        controlCenterPanel
                     }
                 }
-                .padding()
-                .background(.background)
-                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .bottom)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 1)
+                )
+                .padding(.horizontal, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
 
                 List {
                     ManagedDownloadsSectionList(
@@ -827,9 +963,88 @@ struct DetailView: View {
                 .listStyle(.inset)
                 .scrollContentBackground(.hidden)
                 .background(Color(NSColor.controlBackgroundColor))
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: 0)
+                }
             }
             .navigationTitle(String(localized: "detail.navigation.title"))
         }
+    }
+
+    private var controlCenterPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "menu.downloads"))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(viewModel.globalProgressTitle)
+                        .font(.headline)
+                }
+
+                Spacer()
+
+                if !viewModel.downloadStatsText.isEmpty {
+                    Text(viewModel.downloadStatsText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+
+            ProgressView(value: viewModel.globalProgressFraction)
+                .progressViewStyle(.linear)
+
+            HStack(spacing: 10) {
+                Button {
+                    if viewModel.hasActiveDownloads {
+                        viewModel.pauseAllManagedDownloads()
+                    } else {
+                        viewModel.resumeAllPausedDownloads()
+                    }
+                } label: {
+                    Label(primaryControlTitle, systemImage: primaryControlSystemImage)
+                        .font(.headline.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 52)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(!viewModel.hasActiveDownloads && !viewModel.hasPausedDownloads)
+
+                Button {
+                    viewModel.resumeAllPausedDownloads()
+                } label: {
+                    Label(String(localized: "download.resume_all"), systemImage: "play.circle.fill")
+                        .font(.headline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 52)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(!viewModel.hasPausedDownloads)
+
+                Button(role: .destructive) {
+                    viewModel.cancelAllManagedDownloads()
+                } label: {
+                    Label(String(localized: "download.cancel_all"), systemImage: "stop.circle.fill")
+                        .font(.headline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 52)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(settings.selectedTheme.windowBackgroundColor(for: colorScheme).opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 1)
+        )
     }
 
     private func instructionRow(number: String, text: String) -> some View {
@@ -949,16 +1164,25 @@ private struct SummaryChip: View {
             Text("\(count)")
                 .font(.caption.weight(.bold))
                 .monospacedDigit()
-                .contentTransition(.numericText())
+                .modifier(NumericTextTransitionIfAvailable())
             Text(title)
                 .font(.caption.weight(.semibold))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(color.opacity(0.12))
+        .background(color.opacity(0.12), in: Capsule())
         .foregroundStyle(color)
-        .clipShape(Capsule())
         .accessibilityLabel("\(count) \(title)")
+    }
+}
+
+private struct NumericTextTransitionIfAvailable: ViewModifier {
+    func body(content: Content) -> some View {
+        if AppCompatibility.usesLegacySwiftUIWorkarounds {
+            content
+        } else {
+            content.contentTransition(.numericText())
+        }
     }
 }
 
@@ -978,7 +1202,7 @@ private struct DownloadSectionList: View {
                 ForEach(devices) { device in
                     DownloadTaskCard(device: device, viewModel: viewModel, allowsManagedSelection: allowsManagedSelection)
                         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-                        .modifier(CompatibleListRowSeparatorHidden())
+                        .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .contextMenu {
                             let state = viewModel.downloadState(for: device)
@@ -1092,73 +1316,18 @@ private struct ManagedDownloadsSectionList: View {
     let activeDevices: [IPSWDevice]
     let pausedDevices: [IPSWDevice]
     @ObservedObject var viewModel: IPSWViewModel
-    @State private var showCancelAllConfirmation = false
 
     private var managedDevices: [IPSWDevice] {
         activeDevices + pausedDevices
     }
 
-    private var hasSelection: Bool {
-        !viewModel.selectedManagedDownloadIDs.intersection(Set(managedDevices.map(\.identifier))).isEmpty
-    }
-
     var body: some View {
         if !managedDevices.isEmpty {
             Section {
-                HStack(spacing: 8) {
-                    Button(String(localized: "download.pause_all")) {
-                        if hasSelection {
-                            viewModel.pauseSelectedManagedDownloads()
-                        } else {
-                            viewModel.pauseAllManagedDownloads()
-                        }
-                    }
-                    .buttonStyle(.bordered)
-
-                    if viewModel.hasPausedDownloads {
-                        Button(String(localized: "download.resume_all")) {
-                            viewModel.resumeAllPausedDownloads()
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.green)
-                    }
-
-                    Button(String(localized: "download.cancel_all")) {
-                        showCancelAllConfirmation = true
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                    .confirmationDialog(
-                        String(localized: "confirm.cancel_all.title"),
-                        isPresented: $showCancelAllConfirmation,
-                        titleVisibility: .visible
-                    ) {
-                        Button(String(localized: "confirm.cancel_all.action"), role: .destructive) {
-                            if hasSelection {
-                                viewModel.cancelSelectedManagedDownloads()
-                            } else {
-                                viewModel.cancelAllManagedDownloads()
-                            }
-                        }
-                    } message: {
-                        Text(String(localized: "confirm.cancel_all.message"))
-                    }
-
-                    Spacer()
-
-                    if hasSelection {
-                        Text(String(format: String(localized: "download.selection_count"), viewModel.selectedManagedDownloadIDs.count))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-                .listRowBackground(Color.clear)
-
                 ForEach(managedDevices) { device in
-                    DownloadTaskCard(device: device, viewModel: viewModel, allowsManagedSelection: true)
+                    DownloadTaskCard(device: device, viewModel: viewModel, allowsManagedSelection: false)
                         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-                        .modifier(CompatibleListRowSeparatorHidden())
+                        .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }
             } header: {
@@ -1246,14 +1415,13 @@ struct DownloadTaskCard: View {
     let device: IPSWDevice
     @ObservedObject var viewModel: IPSWViewModel
     let allowsManagedSelection: Bool
-    @State private var showDetails = true
 
     private var state: DownloadState { viewModel.downloadState(for: device) }
     private var task: DeviceDownloadTask? { viewModel.downloadTasks[device.identifier] }
     private var isManagedSelected: Bool { viewModel.isManagedDownloadSelected(device) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             // Device name & identifier
             HStack {
                 if allowsManagedSelection {
@@ -1265,11 +1433,11 @@ struct DownloadTaskCard: View {
                     }
                     .buttonStyle(.plain)
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(device.name)
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                     Text(device.identifier)
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -1277,49 +1445,20 @@ struct DownloadTaskCard: View {
                 actionButton
             }
 
-            // Firmware info (collapsible)
             if let fw = task?.firmware {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showDetails.toggle() }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: showDetails ? "chevron.down" : "chevron.right")
-                            .font(.caption2)
-                        Text("\(device.osLabel) \(fw.version) (\(fw.buildid)) — \(fw.filesizeMB)")
-                            .font(.caption)
+                HStack(spacing: 6) {
+                    Text("\(fw.version) (\(fw.buildid))")
+                    Text("•")
+                    Text(fw.filesizeMB)
+                    if fw.signed {
+                        Text("•")
+                        Text(String(localized: "download.signed"))
                     }
-                    .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-
-                if showDetails {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 16) {
-                            Label("\(device.osLabel) \(fw.version)", systemImage: "cpu")
-                            Label(fw.buildid, systemImage: "number")
-                            Label(fw.filesizeMB, systemImage: "internaldrive")
-                        }
-                        HStack(spacing: 16) {
-                            if fw.signed {
-                                Label(String(localized: "download.signed"), systemImage: "checkmark.seal.fill")
-                                    .foregroundStyle(.green)
-                            }
-                            switch device.category {
-                            case .iTunes(let pt):
-                                Label("iTunes / \(pt)", systemImage: "music.note")
-                                    .help("~/Library/iTunes/\(pt) Software Updates")
-                            case .configurator:
-                                Label("Configurator", systemImage: "apps.iphone")
-                                    .help("~/Library/Group Containers/K36BKF7T3D…/Firmware")
-                            }
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
 
-            // Progress / state
             switch state {
             case .queued:
                 queuedStateView
@@ -1342,19 +1481,8 @@ struct DownloadTaskCard: View {
                         Text(task?.progressDetails?.percentText ?? "\(Int(progress * 100))%")
                             .monospacedDigit()
                     }
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
-                    if let details = task?.progressDetails {
-                        HStack {
-                            Text(details.transferredText)
-                            Spacer()
-                            Text(details.speedText)
-                            Text("·")
-                            Text(String(format: String(localized: "download.eta"), details.etaText))
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    }
                 }
             case .completed(let url):
                 HStack {
@@ -1391,7 +1519,8 @@ struct DownloadTaskCard: View {
                 EmptyView()
             }
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(

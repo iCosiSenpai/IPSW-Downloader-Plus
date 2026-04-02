@@ -123,11 +123,13 @@ final class AppSettings: ObservableObject {
     @Published private(set) var launchAgentInstalled: Bool = false
     @Published private(set) var launchAgentLoaded: Bool = false
     @Published private(set) var launchAgentError: String? = nil
+    @Published private(set) var isSchedulingOperationInProgress: Bool = false
     @Published private(set) var lastAutoLaunchReport: AutoLaunchReport? {
         didSet {
             persistAutoLaunchReport()
         }
     }
+    private var schedulingOperationSequence: UInt = 0
 
     // MARK: Download
 
@@ -223,9 +225,7 @@ final class AppSettings: ObservableObject {
             lastAutoLaunchReport = nil
         }
 
-        // Legge lo stato attuale della sveglia pmset
-        wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
-        refreshLaunchAgentStatus()
+        refreshSchedulingStatusAsync()
     }
 
     // MARK: - LaunchAgent
@@ -252,13 +252,35 @@ final class AppSettings: ObservableObject {
             return
         }
 
-        installLaunchAgent()
-        refreshLaunchAgentStatus()
-        if wakeScheduleActive {
-            wakeScheduleActive = false
-            wakeScheduleError = String(localized: "settings.schedule.wake.needs_update")
-        } else {
-            wakeScheduleError = nil
+        performSchedulingOperation { [self] in
+            let launchAgentError = SchedulingService.configureLaunchAgent(
+                enabled: true,
+                plistURL: launchAgentPlistURL,
+                appPath: Bundle.main.executablePath,
+                launchAgentLabel: launchAgentLabel,
+                launchAgentDomain: launchAgentDomain,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                autoLaunchHour: autoLaunchHour,
+                autoLaunchMinute: autoLaunchMinute,
+                autoLaunchDays: autoLaunchDays
+            )
+            let status = SchedulingService.queryLaunchAgentStatus(
+                plistURL: launchAgentPlistURL,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                previousError: launchAgentError
+            )
+            let wakeActive = WakeScheduler.isWakeScheduleActive()
+            let wakeError = wakeActive
+                ? String(localized: "settings.schedule.wake.needs_update")
+                : nil
+
+            return SchedulingOperationResult(
+                launchAgentInstalled: status.installed,
+                launchAgentLoaded: status.loaded,
+                launchAgentError: status.error,
+                wakeScheduleActive: false,
+                wakeScheduleError: wakeError
+            )
         }
     }
 
@@ -269,99 +291,90 @@ final class AppSettings: ObservableObject {
             return
         }
 
-        installLaunchAgent()
-        refreshLaunchAgentStatus()
-        let error = WakeScheduler.scheduleWake(
-            hour: autoLaunchHour,
-            minute: autoLaunchMinute,
-            days: autoLaunchDays
-        )
-        wakeScheduleError = error
-        wakeScheduleActive = (error == nil)
+        performSchedulingOperation { [self] in
+            let launchAgentError = SchedulingService.configureLaunchAgent(
+                enabled: true,
+                plistURL: launchAgentPlistURL,
+                appPath: Bundle.main.executablePath,
+                launchAgentLabel: launchAgentLabel,
+                launchAgentDomain: launchAgentDomain,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                autoLaunchHour: autoLaunchHour,
+                autoLaunchMinute: autoLaunchMinute,
+                autoLaunchDays: autoLaunchDays
+            )
+            let wakeError = WakeScheduler.scheduleWake(
+                hour: autoLaunchHour,
+                minute: autoLaunchMinute,
+                days: autoLaunchDays
+            )
+            let status = SchedulingService.queryLaunchAgentStatus(
+                plistURL: launchAgentPlistURL,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                previousError: launchAgentError
+            )
+
+            return SchedulingOperationResult(
+                launchAgentInstalled: status.installed,
+                launchAgentLoaded: status.loaded,
+                launchAgentError: status.error,
+                wakeScheduleActive: wakeError == nil,
+                wakeScheduleError: wakeError
+            )
+        }
     }
 
     func disableWakeSchedule() {
-        let error = WakeScheduler.cancelWake()
-        if let error {
-            wakeScheduleError = error
-            wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
-        } else {
-            wakeScheduleActive = false
-            wakeScheduleError = nil
+        performSchedulingOperation { [self] in
+            let wakeError = WakeScheduler.cancelWake()
+            let wakeActive = wakeError != nil ? WakeScheduler.isWakeScheduleActive() : false
+            let status = SchedulingService.queryLaunchAgentStatus(
+                plistURL: launchAgentPlistURL,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                previousError: launchAgentError
+            )
+
+            return SchedulingOperationResult(
+                launchAgentInstalled: status.installed,
+                launchAgentLoaded: status.loaded,
+                launchAgentError: status.error,
+                wakeScheduleActive: wakeActive,
+                wakeScheduleError: wakeError
+            )
         }
     }
 
     private func disableScheduling() {
-        removeLaunchAgent()
-        refreshLaunchAgentStatus()
-        wakeScheduleActive = WakeScheduler.isWakeScheduleActive()
-        if wakeScheduleActive {
-            wakeScheduleError = String(localized: "settings.schedule.wake.disable_separately")
-        } else {
-            wakeScheduleError = nil
-        }
-    }
-
-    private func installLaunchAgent() {
-        guard let plistURL = launchAgentPlistURL else { return }
-        installLaunchAgent(at: plistURL)
-    }
-
-    private func installLaunchAgent(at plistURL: URL) {
-        guard let appPath = Bundle.main.executablePath else { return }
-
-        // Costruisce CalendarInterval per ogni giorno selezionato
-        var calendarIntervals: [[String: Any]] = []
-        if autoLaunchDays.isEmpty {
-            // Ogni giorno
-            calendarIntervals = [["Hour": autoLaunchHour, "Minute": autoLaunchMinute]]
-        } else {
-            for day in autoLaunchDays.sorted() {
-                calendarIntervals.append([
-                    "Weekday": day,
-                    "Hour": autoLaunchHour,
-                    "Minute": autoLaunchMinute
-                ])
-            }
-        }
-
-        let plist: [String: Any] = [
-            "Label": launchAgentLabel,
-            "ProgramArguments": [appPath, "--auto-launch"],
-            "StartCalendarInterval": calendarIntervals,
-            "RunAtLoad": false,
-            "StandardOutPath": "/tmp/ipsw-downloader-plus.log",
-            "StandardErrorPath": "/tmp/ipsw-downloader-plus-error.log"
-        ]
-
-        do {
-            let dir = plistURL.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
-            try data.write(to: plistURL)
-            let bootoutResult = runLaunchctl(arguments: ["bootout", launchAgentServiceIdentifier], ignoreFailure: true)
-            let bootstrapResult = runLaunchctl(arguments: ["bootstrap", launchAgentDomain, plistURL.path], ignoreFailure: false)
-            let enableResult = bootstrapResult == nil
-                ? runLaunchctl(arguments: ["enable", launchAgentServiceIdentifier], ignoreFailure: false)
+        performSchedulingOperation { [self] in
+            let launchAgentError = SchedulingService.configureLaunchAgent(
+                enabled: false,
+                plistURL: launchAgentPlistURL,
+                appPath: Bundle.main.executablePath,
+                launchAgentLabel: launchAgentLabel,
+                launchAgentDomain: launchAgentDomain,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                autoLaunchHour: autoLaunchHour,
+                autoLaunchMinute: autoLaunchMinute,
+                autoLaunchDays: autoLaunchDays
+            )
+            let status = SchedulingService.queryLaunchAgentStatus(
+                plistURL: launchAgentPlistURL,
+                launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+                previousError: launchAgentError
+            )
+            let wakeActive = WakeScheduler.isWakeScheduleActive()
+            let wakeError = wakeActive
+                ? String(localized: "settings.schedule.wake.disable_separately")
                 : nil
-            launchAgentError = bootstrapResult ?? enableResult ?? bootoutResult
-        } catch {
-            launchAgentError = error.localizedDescription
-        }
-        refreshLaunchAgentStatus()
-    }
 
-    private func removeLaunchAgent() {
-        guard let plistURL = launchAgentPlistURL else { return }
-        removeLaunchAgent(at: plistURL)
-    }
-
-    private func removeLaunchAgent(at plistURL: URL) {
-        if FileManager.default.fileExists(atPath: plistURL.path) {
-            launchAgentError = runLaunchctl(arguments: ["bootout", launchAgentServiceIdentifier], ignoreFailure: true)
-            try? FileManager.default.removeItem(at: plistURL)
+            return SchedulingOperationResult(
+                launchAgentInstalled: status.installed,
+                launchAgentLoaded: status.loaded,
+                launchAgentError: status.error,
+                wakeScheduleActive: wakeActive,
+                wakeScheduleError: wakeError
+            )
         }
-        refreshLaunchAgentStatus()
     }
 
     // MARK: - Helpers
@@ -448,7 +461,7 @@ final class AppSettings: ObservableObject {
     }
 
     var customDownloadDirectoryDisplayPath: String {
-        customDownloadDirectoryURL?.path(percentEncoded: false) ?? String(localized: "settings.general.folders.default_path")
+        customDownloadDirectoryURL?.path ?? String(localized: "settings.general.folders.default_path")
     }
 
     @MainActor
@@ -480,67 +493,54 @@ final class AppSettings: ObservableObject {
     }
 
     private func refreshLaunchAgentStatus() {
-        guard let plistURL = launchAgentPlistURL else {
-            launchAgentInstalled = false
-            launchAgentLoaded = false
-            return
-        }
+        let status = SchedulingService.queryLaunchAgentStatus(
+            plistURL: launchAgentPlistURL,
+            launchAgentServiceIdentifier: launchAgentServiceIdentifier,
+            previousError: launchAgentError
+        )
+        launchAgentInstalled = status.installed
+        launchAgentLoaded = status.loaded
+        launchAgentError = status.error
+    }
 
-        launchAgentInstalled = FileManager.default.fileExists(atPath: plistURL.path)
-        guard launchAgentInstalled else {
-            launchAgentLoaded = false
-            return
-        }
-
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["print", launchAgentServiceIdentifier]
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            launchAgentLoaded = process.terminationStatus == 0
-            if process.terminationStatus == 0 {
-                if launchAgentError?.isEmpty ?? true {
-                    launchAgentError = nil
-                }
+    private func performSchedulingOperation(_ operation: @escaping @Sendable () -> SchedulingOperationResult) {
+        schedulingOperationSequence &+= 1
+        let operationID = schedulingOperationSequence
+        isSchedulingOperationInProgress = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = operation()
+            DispatchQueue.main.async {
+                guard self.schedulingOperationSequence == operationID else { return }
+                self.launchAgentInstalled = result.launchAgentInstalled
+                self.launchAgentLoaded = result.launchAgentLoaded
+                self.launchAgentError = result.launchAgentError
+                self.wakeScheduleActive = result.wakeScheduleActive
+                self.wakeScheduleError = result.wakeScheduleError
+                self.isSchedulingOperationInProgress = false
             }
-        } catch {
-            launchAgentLoaded = false
-            launchAgentError = error.localizedDescription
         }
     }
 
-    private func runLaunchctl(arguments: [String], ignoreFailure: Bool) -> String? {
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = arguments
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus != 0 else { return nil }
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let message = (
-                String(data: errorData, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            ).flatMap { $0.isEmpty ? nil : $0 }
-            ?? (
-                String(data: outputData, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            ).flatMap { $0.isEmpty ? nil : $0 }
-            return ignoreFailure ? nil : (message?.isEmpty == false ? message : String(localized: "settings.schedule.agent.command_failed"))
-        } catch {
-            return ignoreFailure ? nil : error.localizedDescription
+    private func refreshSchedulingStatusAsync() {
+        schedulingOperationSequence &+= 1
+        let operationID = schedulingOperationSequence
+        isSchedulingOperationInProgress = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let wakeActive = WakeScheduler.isWakeScheduleActive()
+            let status = SchedulingService.queryLaunchAgentStatus(
+                plistURL: self.launchAgentPlistURL,
+                launchAgentServiceIdentifier: self.launchAgentServiceIdentifier,
+                previousError: self.launchAgentError
+            )
+            DispatchQueue.main.async {
+                guard self.schedulingOperationSequence == operationID else { return }
+                self.wakeScheduleActive = wakeActive
+                self.wakeScheduleError = nil
+                self.launchAgentInstalled = status.installed
+                self.launchAgentLoaded = status.loaded
+                self.launchAgentError = status.error
+                self.isSchedulingOperationInProgress = false
+            }
         }
     }
 

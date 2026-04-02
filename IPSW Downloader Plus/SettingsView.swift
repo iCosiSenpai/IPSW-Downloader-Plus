@@ -54,10 +54,10 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.link)
 
-                    Link(String(localized: "settings.footer.github"), destination: URL(string: "https://github.com/iCosiSenpai")!)
+                    Link(String(localized: "settings.footer.github"), destination: AppLinks.github)
                         .buttonStyle(.link)
 
-                    Link(String(localized: "settings.footer.support"), destination: URL(string: "https://paypal.me/AlessioCosi")!)
+                    Link(String(localized: "settings.footer.support"), destination: AppLinks.support)
                         .buttonStyle(.link)
                 }
                 .padding(.horizontal, 16)
@@ -68,10 +68,6 @@ struct SettingsView: View {
             .padding(14)
         }
         .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
-        .overlay {
-            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
-                .allowsHitTesting(false)
-        }
         .frame(width: 720, height: 560)
     }
 }
@@ -376,6 +372,7 @@ private struct ScheduleSettingsTab: View {
                 SettingsGroup(title: String(localized: "settings.schedule.autolaunch.title")) {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(String(localized: "settings.schedule.autolaunch.toggle"), isOn: $settings.autoLaunchEnabled)
+                            .disabled(settings.isSchedulingOperationInProgress)
                         Text(String(localized: "settings.schedule.autolaunch.footer"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -463,12 +460,14 @@ private struct ScheduleSettingsTab: View {
                                     .monospacedDigit()
                                     .frame(width: 70, alignment: .leading)
                             }
+                            .disabled(settings.isSchedulingOperationInProgress)
                             Stepper(value: $settings.autoLaunchMinute, in: 0...59, step: 5) {
                                 Text(String(format: String(localized: "settings.schedule.time.minute"),
                                             String(format: "%02d", settings.autoLaunchMinute)))
                                     .monospacedDigit()
                                     .frame(width: 70, alignment: .leading)
                             }
+                            .disabled(settings.isSchedulingOperationInProgress)
                         }
                     }
 
@@ -487,6 +486,10 @@ private struct ScheduleSettingsTab: View {
 
                     // Summary
                     HStack(spacing: 8) {
+                        if settings.isSchedulingOperationInProgress {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
                         Image(systemName: "clock.fill")
                             .foregroundStyle(Color.accentColor)
                             .font(.callout)
@@ -532,13 +535,14 @@ private struct ScheduleSettingsTab: View {
                                         settings.applyWakeSchedule()
                                     }
                                     .buttonStyle(.borderedProminent)
+                                    .disabled(settings.isSchedulingOperationInProgress)
                                 }
 
                                 Button(String(localized: "settings.schedule.wake.disable")) {
                                     settings.disableWakeSchedule()
                                 }
                                 .buttonStyle(.bordered)
-                                .disabled(!settings.wakeScheduleActive)
+                                .disabled(!settings.wakeScheduleActive || settings.isSchedulingOperationInProgress)
                             }
                             Text(String(localized: "settings.schedule.wake.footer"))
                                 .font(.caption)
@@ -603,6 +607,7 @@ private struct DayToggle: View {
         .toggleStyle(.button)
         .buttonStyle(.bordered)
         .tint(isOn ? .accentColor : nil)
+        .disabled(settings.isSchedulingOperationInProgress)
     }
 }
 

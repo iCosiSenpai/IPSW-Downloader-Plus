@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import Testing
 @testable import IPSW_Downloader_Plus
@@ -15,8 +14,8 @@ struct ThemeBehaviorTests {
     @Test
     func eachThemeProvidesDistinctWindowBackgroundsForLightAndDark() {
         for theme in AppTheme.allCases {
-            let light = theme.windowBackgroundNSColor(for: .light)
-            let dark = theme.windowBackgroundNSColor(for: .dark)
+            let light = theme.windowBackgroundColor(for: .light)
+            let dark = theme.windowBackgroundColor(for: .dark)
 
             #expect(light != dark)
         }

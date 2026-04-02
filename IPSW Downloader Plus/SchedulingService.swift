@@ -5,6 +5,12 @@
 
 import Foundation
 
+private struct ProcessExecutionResult {
+    let terminationStatus: Int32
+    let standardOutput: String
+    let standardError: String
+}
+
 struct SchedulingStatusSnapshot {
     let installed: Bool
     let loaded: Bool
@@ -20,6 +26,8 @@ struct SchedulingOperationResult {
 }
 
 enum SchedulingService {
+    private static let processTimeout: TimeInterval = 5
+
     static func queryLaunchAgentStatus(
         plistURL: URL?,
         launchAgentServiceIdentifier: String,
@@ -34,18 +42,12 @@ enum SchedulingService {
             return SchedulingStatusSnapshot(installed: false, loaded: false, error: previousError)
         }
 
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["print", launchAgentServiceIdentifier]
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
         do {
-            try process.run()
-            process.waitUntilExit()
-            let loaded = process.terminationStatus == 0
+            let result = try runProcess(
+                executablePath: "/bin/launchctl",
+                arguments: ["print", launchAgentServiceIdentifier]
+            )
+            let loaded = result.terminationStatus == 0
             let resolvedError = loaded ? nil : previousError
             return SchedulingStatusSnapshot(installed: installed, loaded: loaded, error: resolvedError)
         } catch {
@@ -116,31 +118,52 @@ enum SchedulingService {
     }
 
     private static func runLaunchctl(arguments: [String], ignoreFailure: Bool) -> String? {
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = arguments
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
         do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus != 0 else { return nil }
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let message = (
-                String(data: errorData, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            ).flatMap { $0.isEmpty ? nil : $0 }
-            ?? (
-                String(data: outputData, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            ).flatMap { $0.isEmpty ? nil : $0 }
+            let result = try runProcess(executablePath: "/bin/launchctl", arguments: arguments)
+            guard result.terminationStatus != 0 else { return nil }
+            let message = [result.standardError, result.standardOutput]
+                .lazy
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first(where: { !$0.isEmpty })
             return ignoreFailure ? nil : (message?.isEmpty == false ? message : String(localized: "settings.schedule.agent.command_failed"))
         } catch {
             return ignoreFailure ? nil : error.localizedDescription
         }
+    }
+
+    private static func runProcess(executablePath: String, arguments: [String]) throws -> ProcessExecutionResult {
+        let process = Process()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        try process.run()
+        if processTimeout > 0 {
+            let deadline = Date().addingTimeInterval(processTimeout)
+            while process.isRunning && Date() < deadline {
+                RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            }
+            if process.isRunning {
+                process.terminate()
+                throw NSError(
+                    domain: "SchedulingService",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "settings.schedule.agent.command_failed")]
+                )
+            }
+        } else {
+            process.waitUntilExit()
+        }
+
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        return ProcessExecutionResult(
+            terminationStatus: process.terminationStatus,
+            standardOutput: String(data: outputData, encoding: .utf8) ?? "",
+            standardError: String(data: errorData, encoding: .utf8) ?? ""
+        )
     }
 }

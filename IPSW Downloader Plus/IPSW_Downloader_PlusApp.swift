@@ -12,6 +12,59 @@ extension Notification.Name {
     static let showInitialSetupFlow = Notification.Name("showInitialSetupFlow")
 }
 
+@MainActor
+final class SettingsWindowController: NSObject, NSWindowDelegate {
+    private(set) var windowController: NSWindowController?
+
+    func open() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let window = windowController?.window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let hostingController = NSHostingController(rootView: SettingsRootView())
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = String(localized: "settings.menu.open")
+        window.setContentSize(NSSize(width: 720, height: 560))
+        window.minSize = NSSize(width: 720, height: 560)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.delegate = self
+        window.setFrameAutosaveName("IPSWDownloaderPlusSettings")
+
+        let controller = NSWindowController(window: window)
+        windowController = controller
+        controller.showWindow(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        windowController = nil
+    }
+}
+
+private struct SettingsRootView: View {
+    @ObservedObject private var settings = AppSettings.shared
+
+    var body: some View {
+        SettingsView()
+            .preferredColorScheme(settings.appearanceMode.preferredColorScheme)
+            .tint(settings.selectedTheme.tintColor)
+    }
+}
+
+enum SettingsPresenter {
+    @MainActor
+    private static let controller = SettingsWindowController()
+
+    @MainActor
+    static func open() {
+        controller.open()
+    }
+}
+
 /// View radice che gestisce l'onboarding iniziale e l'accesso alle cartelle protette.
 struct RootView: View {
     let viewModel: IPSWViewModel
@@ -23,13 +76,17 @@ struct RootView: View {
     @State private var isShowingWelcome: Bool
     @State private var isShowingSetup: Bool
     @State private var fullDiskAccessStatus: FullDiskAccessStatus
+    @State private var shouldPresentSetupAfterWelcome: Bool
 
     init(viewModel: IPSWViewModel, isAutoLaunch: Bool) {
         self.viewModel = viewModel
         self.isAutoLaunch = isAutoLaunch
+        let shouldOpenWelcome = isAutoLaunch ? false : AppSettings.shared.showWelcomeOnStartup
+        let shouldOpenSetupDirectly = isAutoLaunch ? false : !AppSettings.shared.hasCompletedInitialSetup && !AppSettings.shared.showWelcomeOnStartup
         _isShowingWelcome = State(initialValue: isAutoLaunch ? false : AppSettings.shared.showWelcomeOnStartup)
-        _isShowingSetup = State(initialValue: isAutoLaunch ? false : !AppSettings.shared.hasCompletedInitialSetup && !AppSettings.shared.showWelcomeOnStartup)
+        _isShowingSetup = State(initialValue: shouldOpenSetupDirectly)
         _fullDiskAccessStatus = State(initialValue: FullDiskAccessChecker.status())
+        _shouldPresentSetupAfterWelcome = State(initialValue: shouldOpenWelcome && !AppSettings.shared.hasCompletedInitialSetup)
     }
 
     var body: some View {
@@ -43,12 +100,7 @@ struct RootView: View {
             }
         }
         .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
-        .overlay {
-            ThemeWindowConfigurator(theme: settings.selectedTheme, colorScheme: colorScheme)
-                .allowsHitTesting(false)
-        }
         .task {
-            // Request notification permission on first launch
             _ = try? await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])
             if isAutoLaunch {
@@ -60,36 +112,48 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $isShowingWelcome, onDismiss: {
-            if !isAutoLaunch && !settings.hasCompletedInitialSetup {
+            if !isAutoLaunch && shouldPresentSetupAfterWelcome && !settings.hasCompletedInitialSetup {
                 isShowingSetup = true
             }
         }) {
-            WelcomeView {
+            WelcomeView(
+                selectedTheme: settings.selectedTheme,
+                showWelcomeOnStartup: $settings.showWelcomeOnStartup
+            ) {
                 isShowingWelcome = false
-                if !settings.hasCompletedInitialSetup {
+                if shouldPresentSetupAfterWelcome && !settings.hasCompletedInitialSetup {
                     isShowingSetup = true
                 }
             }
-                .background(WindowDraggableBackground())
+            .modifier(SheetDragBackgroundIfAvailable())
         }
         .sheet(isPresented: $isShowingSetup) {
-            InitialSetupView(fullDiskAccessStatus: $fullDiskAccessStatus) {
+            InitialSetupView(
+                selectedTheme: settings.selectedTheme,
+                showWelcomeOnStartup: $settings.showWelcomeOnStartup,
+                customDownloadDirectoryPath: $settings.customDownloadDirectoryPath,
+                fullDiskAccessStatus: $fullDiskAccessStatus,
+                chooseCustomDownloadDirectory: settings.chooseCustomDownloadDirectory,
+                resetCustomDownloadDirectory: settings.resetCustomDownloadDirectory
+            ) {
                 settings.hasCompletedInitialSetup = true
                 isShowingSetup = false
             }
-            .background(WindowDraggableBackground())
+            .modifier(SheetDragBackgroundIfAvailable())
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             fullDiskAccessStatus = FullDiskAccessChecker.status()
         }
         .onReceive(NotificationCenter.default.publisher(for: .showWelcomeFlow)) { _ in
             guard !isAutoLaunch else { return }
+            shouldPresentSetupAfterWelcome = false
             isShowingSetup = false
             isShowingWelcome = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .showInitialSetupFlow)) { _ in
             guard !isAutoLaunch else { return }
             fullDiskAccessStatus = FullDiskAccessChecker.status()
+            shouldPresentSetupAfterWelcome = false
             isShowingWelcome = false
             isShowingSetup = true
         }
@@ -115,7 +179,7 @@ private struct FullDiskAccessGateView: View {
                 Label(String(localized: "fda.required.title"), systemImage: "externaldrive.badge.exclamationmark")
                     .font(.title2.weight(.semibold))
                 Text(String(localized: "fda.required.body"))
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -171,6 +235,16 @@ private final class DraggableHostView: NSView {
     }
 }
 
+private struct SheetDragBackgroundIfAvailable: ViewModifier {
+    func body(content: Content) -> some View {
+        if AppCompatibility.usesLegacySwiftUIWorkarounds {
+            content
+        } else {
+            content.background(WindowDraggableBackground())
+        }
+    }
+}
+
 @main
 struct IPSW_Downloader_PlusApp: App {
 
@@ -190,24 +264,14 @@ struct IPSW_Downloader_PlusApp: App {
             AppSettingsCommands()
             AppDownloadCommands(viewModel: viewModel)
         }
-
-        Window(String(localized: "settings.window.title"), id: "settings") {
-            SettingsView()
-                .preferredColorScheme(settings.appearanceMode.preferredColorScheme)
-                .tint(settings.selectedTheme.tintColor)
-        }
-        .defaultSize(width: 560, height: 420)
-        .windowResizability(.contentSize)
     }
 }
 
 private struct AppSettingsCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
-
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
             Button(String(localized: "settings.menu.open")) {
-                openWindow(id: "settings")
+                SettingsPresenter.open()
             }
             .keyboardShortcut(",", modifiers: .command)
         }

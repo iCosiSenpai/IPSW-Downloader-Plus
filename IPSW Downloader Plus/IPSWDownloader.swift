@@ -111,6 +111,7 @@ final class IPSWAPIClient {
 
     private let baseURL = "https://api.ipsw.me/v4"
     private let session: URLSession
+    private let iOSReleaseVersionPattern = try? NSRegularExpression(pattern: #"(?:iOS|iPadOS)\s+(\d+(?:\.\d+)*)"#)
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -119,7 +120,7 @@ final class IPSWAPIClient {
     }
 
     func fetchDevices() async throws -> [IPSWDevice] {
-        let url = URL(string: "\(baseURL)/devices")!
+        let url = try endpointURL(path: "/devices")
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
         return try JSONDecoder().decode([IPSWDevice].self, from: data)
@@ -127,7 +128,7 @@ final class IPSWAPIClient {
 
     func fetchDevice(identifier: String) async throws -> IPSWDevice {
         let encoded = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? identifier
-        let url = URL(string: "\(baseURL)/device/\(encoded)?type=ipsw")!
+        let url = try endpointURL(path: "/device/\(encoded)", queryItems: [URLQueryItem(name: "type", value: "ipsw")])
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
         return try JSONDecoder().decode(IPSWDevice.self, from: data)
@@ -137,14 +138,16 @@ final class IPSWAPIClient {
     /// Usa /v4/releases, estrae il numero di versione con regex e sceglie la major più alta.
     /// Il campo `name` ha formato "iOS 26.3.1 (23D8133)" — il build ID viene scartato.
     func fetchLatestIOSVersion() async throws -> String {
-        let url = URL(string: "\(baseURL)/releases")!
+        let url = try endpointURL(path: "/releases")
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
         let groups = try JSONDecoder().decode([IPSWReleaseGroup].self, from: data)
 
         // Regex: cattura il numero di versione (es. "26.3.1") dal campo name
         // Formato atteso: "iOS 26.3.1 (23D8133)" oppure "iPadOS 26.0"
-        let pattern = try! NSRegularExpression(pattern: #"(?:iOS|iPadOS)\s+(\d+(?:\.\d+)*)"#)
+        guard let pattern = iOSReleaseVersionPattern else {
+            throw IPSWError.invalidResponse
+        }
 
         var bestVersion: String? = nil
 
@@ -180,7 +183,7 @@ final class IPSWAPIClient {
     /// Usa /v4/ipsw/{version}.
     func fetchSignedDeviceIdentifiers(for version: String) async throws -> Set<String> {
         let encoded = version.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? version
-        let url = URL(string: "\(baseURL)/ipsw/\(encoded)")!
+        let url = try endpointURL(path: "/ipsw/\(encoded)")
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
         let firmwares = try JSONDecoder().decode([IPSWFirmware].self, from: data)
@@ -195,6 +198,18 @@ final class IPSWAPIClient {
         guard (200...299).contains(http.statusCode) else {
             throw IPSWError.httpError(statusCode: http.statusCode)
         }
+    }
+
+    private func endpointURL(path: String, queryItems: [URLQueryItem] = []) throws -> URL {
+        guard var components = URLComponents(string: baseURL) else {
+            throw IPSWError.invalidURL
+        }
+        components.path += path
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard let url = components.url else {
+            throw IPSWError.invalidURL
+        }
+        return url
     }
 }
 

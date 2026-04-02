@@ -53,6 +53,7 @@ final class IPSWViewModel: ObservableObject {
     private let statePersistenceURL: URL
     private var isRestoringPersistedState = false
     private var hasResumedPersistedDownloads = false
+    private var deviceLoadSequence = 0
 
     init() {
         let appSupportDirectory = FileManager.default.homeDirectoryForCurrentUser
@@ -269,10 +270,14 @@ final class IPSWViewModel: ObservableObject {
     // MARK: - Load Devices
 
     func loadDevices() async {
+        deviceLoadSequence += 1
+        let currentLoadSequence = deviceLoadSequence
         isLoadingDevices = true
         deviceLoadError = nil
         do {
-            devices = try await IPSWAPIClient.shared.fetchDevices()
+            let fetchedDevices = try await IPSWAPIClient.shared.fetchDevices()
+            guard isLatestDeviceLoad(sequence: currentLoadSequence) else { return }
+            devices = fetchedDevices
             appendActivity(
                 kind: .success,
                 deviceIdentifier: nil,
@@ -285,6 +290,7 @@ final class IPSWViewModel: ObservableObject {
                 await self?.loadSortMetadata(for: self?.devices ?? [])
             }
         } catch {
+            guard isLatestDeviceLoad(sequence: currentLoadSequence) else { return }
             deviceLoadError = error.localizedDescription
             appendActivity(
                 kind: .error,
@@ -293,6 +299,7 @@ final class IPSWViewModel: ObservableObject {
                 message: error.localizedDescription
             )
         }
+        guard isLatestDeviceLoad(sequence: currentLoadSequence) else { return }
         isLoadingDevices = false
         restartDirectoryMonitoring()
         refreshLocalFirmwareState()
@@ -585,21 +592,24 @@ final class IPSWViewModel: ObservableObject {
 
             downloader.onProgress = { [weak self] progress in
                 Task { @MainActor [weak self] in
-                    self?.downloadTasks[identifier]?.state = .downloading(progress: progress.fractionCompleted)
-                    self?.downloadTasks[identifier]?.progressDetails = progress
+                    guard let self, self.isCurrentDownloader(downloader, for: identifier) else { return }
+                    self.downloadTasks[identifier]?.state = .downloading(progress: progress.fractionCompleted)
+                    self.downloadTasks[identifier]?.progressDetails = progress
                 }
             }
 
             downloader.onVerifying = { [weak self] in
                 Task { @MainActor [weak self] in
-                    self?.downloadTasks[identifier]?.state = .verifying
-                    self?.downloadTasks[identifier]?.progressDetails = nil
+                    guard let self, self.isCurrentDownloader(downloader, for: identifier) else { return }
+                    self.downloadTasks[identifier]?.state = .verifying
+                    self.downloadTasks[identifier]?.progressDetails = nil
                 }
             }
 
             downloader.onCompletion = { [weak self] result in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
+                    guard self.isCurrentDownloader(downloader, for: identifier) else { return }
                     switch result {
                     case .success(let url):
                         self.resumeDataStore.removeValue(forKey: identifier)
@@ -726,7 +736,7 @@ final class IPSWViewModel: ObservableObject {
         scheduleDownload(for: device)
     }
 
-    func cancelDownload(for device: IPSWDevice) {
+    func cancelDownload(for device: IPSWDevice, persistStateNow: Bool = true) {
         if let queuedIndex = pendingDownloadQueue.firstIndex(of: device.identifier) {
             pendingDownloadQueue.remove(at: queuedIndex)
         }
@@ -744,6 +754,9 @@ final class IPSWViewModel: ObservableObject {
             message: String(localized: "activity.download_cancelled")
         )
         startNextQueuedDownloadIfPossible()
+        if persistStateNow {
+            persistState()
+        }
     }
 
     /// Rimuove il dispositivo dalla lista selezionati e cancella l'eventuale download attivo.
@@ -757,6 +770,7 @@ final class IPSWViewModel: ObservableObject {
         resumeDataStore.removeValue(forKey: device.identifier)
         downloadTasks.removeValue(forKey: device.identifier)
         selectedDeviceIDs.remove(device.identifier)
+        selectedManagedDownloadIDs.remove(device.identifier)
         appendActivity(
             kind: .info,
             deviceIdentifier: device.identifier,
@@ -764,6 +778,7 @@ final class IPSWViewModel: ObservableObject {
             message: String(localized: "activity.download_removed")
         )
         startNextQueuedDownloadIfPossible()
+        persistState()
     }
 
     /// Rimuove i device per IndexSet (usato da List.onDelete).
@@ -785,9 +800,10 @@ final class IPSWViewModel: ObservableObject {
     func cancelSelectedManagedDownloads() {
         let devicesToCancel = cancellableManagedDevices.filter { selectedManagedDownloadIDs.contains($0.identifier) }
         for device in devicesToCancel {
-            cancelDownload(for: device)
+            cancelDownload(for: device, persistStateNow: false)
         }
         selectedManagedDownloadIDs.subtract(devicesToCancel.map(\.identifier))
+        persistState()
     }
 
     func pauseAllManagedDownloads() {
@@ -799,9 +815,10 @@ final class IPSWViewModel: ObservableObject {
 
     func cancelAllManagedDownloads() {
         for device in cancellableManagedDevices {
-            cancelDownload(for: device)
+            cancelDownload(for: device, persistStateNow: false)
         }
         selectedManagedDownloadIDs.removeAll()
+        persistState()
     }
 
     func resumeAllPausedDownloads() {
@@ -1351,6 +1368,14 @@ final class IPSWViewModel: ObservableObject {
         activeDownloaders.removeValue(forKey: identifier)
         downloadTaskHandles.removeValue(forKey: identifier)
         activeDownloadIdentifiers.remove(identifier)
+    }
+
+    private func isCurrentDownloader(_ downloader: IPSWDownloader, for identifier: String) -> Bool {
+        activeDownloaders[identifier] === downloader
+    }
+
+    private func isLatestDeviceLoad(sequence: Int) -> Bool {
+        deviceLoadSequence == sequence
     }
 
     private func startNextQueuedDownloadIfPossible() {
