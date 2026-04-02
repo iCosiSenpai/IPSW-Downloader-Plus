@@ -11,7 +11,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "26.0"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "26.0.1"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "2"
         return String(format: String(localized: "settings.footer.version"), version, build)
     }
