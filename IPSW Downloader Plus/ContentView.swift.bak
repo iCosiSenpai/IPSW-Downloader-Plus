@@ -17,24 +17,25 @@ struct ContentView: View {
         ZStack {
             ThemeCanvasBackground(theme: settings.selectedTheme)
 
-            VStack(spacing: 0) {
-                dashboardHeader
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-                    .padding(.bottom, 8)
+            VStack(spacing: 14) {
+                contentHeader
+                    .padding(.horizontal, 18)
+                    .padding(.top, 18)
 
                 VStack(spacing: 0) {
                     navigationContainer
+
                     footerLinks
                 }
-                .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 20)
+                .padding(8)
+                .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 24)
                 .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(settings.selectedTheme.surfaceColor(for: colorScheme).opacity(0.6))
-                        .shadow(color: .black.opacity(colorScheme == .dark ? 0.25 : 0.08), radius: 16, y: 8)
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(settings.selectedTheme.surfaceColor(for: colorScheme).opacity(0.72))
+                        .shadow(color: .black.opacity(colorScheme == .dark ? 0.20 : 0.08), radius: 18, y: 12)
                 )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 14)
+                .padding(.horizontal, 18)
+                .padding(.bottom, 18)
             }
         }
         .frame(minWidth: 980, minHeight: 600)
@@ -68,18 +69,16 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Dashboard Header
-
-    private var dashboardHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
+    private var contentHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(String(localized: "dashboard.eyebrow"))
-                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(settings.selectedTheme.accentColor)
                         .textCase(.uppercase)
                     Text(String(localized: "dashboard.title"))
-                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                     Text(headerSummary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -87,47 +86,36 @@ struct ContentView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 12)
 
-                HStack(spacing: 6) {
-                    DashboardMetricCard(
-                        title: String(localized: "dashboard.metric.devices"),
-                        value: "\(viewModel.filteredDevices.count)",
-                        tint: settings.selectedTheme.tintColor
-                    )
-                    DashboardMetricCard(
-                        title: String(localized: "dashboard.metric.selected"),
-                        value: "\(viewModel.selectedDeviceIDs.count)",
-                        tint: settings.selectedTheme.accentColor
-                    )
-                    DashboardMetricCard(
-                        title: String(localized: "dashboard.metric.active"),
-                        value: "\(activeDownloadCount)",
-                        tint: .orange
-                    )
+                VStack(alignment: .trailing, spacing: 8) {
+                    HStack(spacing: 8) {
+                        DashboardMetricCard(title: String(localized: "dashboard.metric.devices"), value: "\(viewModel.filteredDevices.count)", tint: settings.selectedTheme.tintColor)
+                        DashboardMetricCard(title: String(localized: "dashboard.metric.selected"), value: "\(viewModel.selectedDeviceIDs.count)", tint: settings.selectedTheme.accentColor)
+                        DashboardMetricCard(title: String(localized: "dashboard.metric.active"), value: "\(activeDownloadCount)", tint: .orange)
+                    }
                 }
             }
 
-            HStack(spacing: 8) {
-                dashboardActionButton(
-                    title: String(localized: "dashboard.action.download"),
-                    systemImage: "arrow.down.circle.fill",
-                    prominent: true,
-                    isDisabled: !viewModel.hasSelection
-                ) {
-                    viewModel.downloadSelectedDevices()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    dashboardActionButton(
+                        title: String(localized: "dashboard.action.download"),
+                        systemImage: "arrow.down.circle.fill",
+                        prominent: true,
+                        isDisabled: !viewModel.hasSelection
+                    ) {
+                        viewModel.downloadSelectedDevices()
+                    }
+                    headerBadge(title: String(localized: "dashboard.badge.sort"), value: viewModel.activeSortSummary)
+                    headerBadge(title: String(localized: "dashboard.badge.theme"), value: settings.selectedTheme.localizedTitle)
                 }
-                headerBadge(title: String(localized: "dashboard.badge.sort"), value: viewModel.activeSortSummary)
-                headerBadge(title: String(localized: "dashboard.badge.theme"), value: settings.selectedTheme.localizedTitle)
-
-                Spacer()
             }
 
             if viewModel.hasActiveDownloads {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 5) {
                     ProgressView(value: viewModel.globalProgressFraction)
                         .progressViewStyle(.linear)
-                        .tint(settings.selectedTheme.accentColor)
                     HStack {
                         Text(viewModel.globalProgressTitle)
                             .font(.caption2)
@@ -141,67 +129,64 @@ struct ContentView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(settings.selectedTheme.accentColor.opacity(colorScheme == .dark ? 0.10 : 0.06))
-                )
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 14))
             }
         }
-        .padding(14)
-        .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 18)
-        .background(settings.selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 18))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 22)
+        .background(settings.selectedTheme.heroGradient(for: colorScheme), in: RoundedRectangle(cornerRadius: 22))
     }
 
     private func headerBadge(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.tertiary)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
             Text(value)
-                .font(.caption2.weight(.medium))
+                .font(.caption.weight(.semibold))
                 .lineLimit(1)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(settings.selectedTheme.secondarySurfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func dashboardActionButton(title: String, systemImage: String, prominent: Bool = false, isDisabled: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 4)
-                .frame(minHeight: 34)
+                .font(.headline.weight(.semibold))
+                .padding(.horizontal, 6)
+                .frame(minHeight: 42)
         }
         .modifier(DashboardActionButtonStyle(prominent: prominent))
-        .controlSize(.regular)
+        .controlSize(.large)
         .disabled(isDisabled)
     }
 
-    // MARK: - Footer
-
     private var footerLinks: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 16) {
             Link(destination: AppLinks.support) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Text("PayPal")
-                        .font(.caption2.weight(.bold))
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                         .background(
-                            Capsule().fill(
-                                LinearGradient(
-                                    colors: [Color(red: 0.0, green: 0.38, blue: 0.75), Color(red: 0.0, green: 0.62, blue: 0.89)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color(red: 0.0, green: 0.38, blue: 0.75), Color(red: 0.0, green: 0.62, blue: 0.89)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
                         )
                     Text(String(localized: "footer.donate"))
-                        .font(.caption.weight(.medium))
+                        .font(.callout.weight(.semibold))
                 }
                 .foregroundStyle(.secondary)
             }
@@ -210,28 +195,27 @@ struct ContentView: View {
             Spacer()
 
             Link(destination: AppLinks.github) {
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
-                        .font(.caption)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
                     Text(String(localized: "footer.made_with"))
-                        .font(.caption)
+                        .font(.callout)
                     Image(systemName: "heart.fill")
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.red)
                     Text(String(localized: "footer.by_author"))
-                        .font(.caption.weight(.semibold))
+                        .font(.callout.weight(.semibold))
                 }
                 .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .background(.bar)
-        .overlay(Rectangle().frame(height: 0.5).foregroundStyle(.separator), alignment: .top)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
     }
-
-    // MARK: - Helpers
 
     private var headerSummary: String {
         if viewModel.isLoadingDevices {
@@ -249,11 +233,14 @@ struct ContentView: View {
     private var activeDownloadCount: Int {
         viewModel.downloadTasks.values.filter { task in
             switch task.state {
-            case .queued, .downloading, .verifying: return true
-            default: return false
+            case .queued, .downloading, .verifying:
+                return true
+            default:
+                return false
             }
         }.count
     }
+
 }
 
 private struct DashboardActionButtonStyle: ViewModifier {
@@ -272,32 +259,37 @@ private struct DashboardMetricCard: View {
     let title: String
     let value: String
     let tint: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(.headline, design: .rounded, weight: .bold))
-                .modifier(NumericTextTransitionIfAvailable())
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(minWidth: 80, alignment: .leading)
-        .themeMetricCardBackground(tint: tint, cornerRadius: 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minWidth: 104, alignment: .leading)
+        .themeMetricCardBackground(tint: tint, cornerRadius: 16)
     }
 }
 
 private struct WindowChromeConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async { configureWindow(for: view) }
+        DispatchQueue.main.async {
+            configureWindow(for: view)
+        }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { configureWindow(for: nsView) }
+        DispatchQueue.main.async {
+            configureWindow(for: nsView)
+        }
     }
 
     private func configureWindow(for view: NSView) {
@@ -321,14 +313,12 @@ struct SidebarView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 6)
 
-            // Search
-            HStack(spacing: 8) {
+            // Search Bar
+            HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                    .font(.caption)
                 TextField(String(localized: "search.placeholder"), text: $viewModel.searchText)
                     .textFieldStyle(.plain)
-                    .font(.callout)
                 if !viewModel.searchText.isEmpty {
                     Button { viewModel.searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -337,16 +327,15 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(8)
+            .padding(10)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
             )
             .padding(.horizontal, 8)
-            .padding(.bottom, 6)
+            .padding(.bottom, 8)
 
-            // Sort + count
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Picker(String(localized: "sidebar.sort.label"), selection: $viewModel.sortOption) {
                     ForEach(SidebarSortOption.allCases) { option in
                         Text(option.localizedTitle).tag(option)
@@ -354,13 +343,11 @@ struct SidebarView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .controlSize(.small)
 
                 Button {
                     viewModel.sortAscending.toggle()
                 } label: {
                     Image(systemName: viewModel.sortAscending ? "arrow.up" : "arrow.down")
-                        .font(.caption)
                 }
                 .buttonStyle(.borderless)
                 .help(String(localized: "sidebar.sort.order"))
@@ -369,24 +356,24 @@ struct SidebarView: View {
 
                 Text(viewModel.deviceCountLabel)
                     .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(Color.accentColor.opacity(0.12))
                     .clipShape(Capsule())
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
             )
             .padding(.horizontal, 8)
-            .padding(.bottom, 4)
+            .padding(.bottom, 6)
 
-            // Filter chips
+            // Device type filter chips
             if !viewModel.availableDeviceTypeFilters.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         FilterChip(
                             label: String(localized: "filter.all"),
                             symbol: "square.grid.2x2",
@@ -410,9 +397,9 @@ struct SidebarView: View {
                     }
                     .padding(.horizontal, 8)
                 }
-                .padding(.vertical, 3)
+                .padding(.vertical, 4)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 4)
+                .padding(.bottom, 6)
             }
 
             // Device List
@@ -437,9 +424,9 @@ struct SidebarView: View {
                 Spacer()
             } else if viewModel.filteredDevices.isEmpty && !viewModel.searchText.isEmpty {
                 Spacer()
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 32))
+                        .font(.system(size: 36))
                         .foregroundStyle(.secondary)
                     Text(String(localized: "search.no_results"))
                         .font(.headline)
@@ -452,15 +439,14 @@ struct SidebarView: View {
                         viewModel.searchText = ""
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
                 .padding()
                 Spacer()
             } else if viewModel.filteredDevices.isEmpty {
                 Spacer()
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     Image(systemName: "tray")
-                        .font(.system(size: 32))
+                        .font(.system(size: 36))
                         .foregroundStyle(.secondary)
                     Text(String(localized: "search.empty_list"))
                         .font(.headline)
@@ -469,19 +455,19 @@ struct SidebarView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .multilineTextAlignment(.center)
-                    HStack(spacing: 6) {
+
+                    HStack(spacing: 8) {
                         if viewModel.activeDeviceTypeFilter != nil {
                             Button(String(localized: "filter.all")) {
                                 viewModel.activeDeviceTypeFilter = nil
                             }
                             .buttonStyle(.bordered)
-                            .controlSize(.small)
                         }
+
                         Button(String(localized: "sidebar.retry")) {
                             Task { await viewModel.loadDevices() }
                         }
                         .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
                         .disabled(viewModel.isLoadingDevices)
                     }
                 }
@@ -490,7 +476,7 @@ struct SidebarView: View {
             } else {
                 List(viewModel.filteredDevices) { device in
                     DeviceRowView(device: device, viewModel: viewModel)
-                        .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                 }
                 .listStyle(.sidebar)
                 .animation(.default, value: viewModel.filteredDevices.map(\.identifier))
@@ -536,7 +522,7 @@ struct SidebarView: View {
             }
             .padding(8)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
             )
             .padding(8)
@@ -570,6 +556,7 @@ struct SidebarView: View {
                 .labelStyle(.iconOnly)
                 .help(String(localized: "sidebar.toolbar.settings.help"))
             }
+
         }
         .alert(String(localized: "sidebar.template.error_title"), isPresented: Binding(
             get: { viewModel.templateError != nil },
@@ -582,7 +569,7 @@ struct SidebarView: View {
     }
 
     private var sidebarUtilityBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Text(String(localized: "sidebar.nav_title"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -607,26 +594,25 @@ struct SidebarView: View {
                     Label(String(localized: "sidebar.template.vintage"), systemImage: "clock.arrow.circlepath")
                 }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     if viewModel.isApplyingLatestIOSTemplate {
                         ProgressView()
                             .controlSize(.small)
                     } else {
                         Image(systemName: "wand.and.stars")
-                            .font(.caption)
                     }
                     Text(String(localized: "sidebar.toolbar.template"))
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
                 .background(
                     Capsule()
                         .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
                 )
                 .overlay(
                     Capsule()
-                        .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 0.5)
+                        .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 1)
                 )
             }
             .menuStyle(.borderlessButton)
@@ -656,10 +642,10 @@ struct DeviceRowView: View {
     private var isSelected: Bool { viewModel.isSelected(device) }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
+            // Checkbox
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.5))
-                .font(.callout)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
 
             ZStack(alignment: .bottomTrailing) {
                 Image(systemName: device.symbolName)
@@ -672,13 +658,12 @@ struct DeviceRowView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(device.name)
-                    .font(.callout.weight(.medium))
-                    .lineLimit(1)
+                    .fontWeight(.medium)
                 Text(device.identifier)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -749,28 +734,38 @@ struct DeviceRowView: View {
                 ProgressView().controlSize(.small)
                 Text(String(localized: "download.queued")).font(.caption2).foregroundStyle(.secondary)
             }
+            .accessibilityLabel(String(localized: "download.queued"))
         case .paused:
             HStack(spacing: 4) {
-                Image(systemName: "pause.circle.fill").foregroundStyle(.orange).font(.caption2)
+                Image(systemName: "pause.circle.fill")
+                    .foregroundStyle(.orange)
                 Text(String(localized: "download.paused")).font(.caption2).foregroundStyle(.secondary)
             }
+            .accessibilityLabel(String(localized: "download.paused"))
         case .downloading(let progress):
-            HStack(spacing: 5) {
-                ProgressView(value: progress).frame(width: 54)
+            HStack(spacing: 6) {
+                ProgressView(value: progress)
+                    .frame(width: 60)
                 Text("\(Int(progress * 100))%")
-                    .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
+            .accessibilityLabel(String(format: String(localized: "accessibility.downloading"), Int(progress * 100)))
         case .verifying:
             HStack(spacing: 4) {
                 ProgressView().controlSize(.small)
-                Text("SHA1\u{2026}").font(.caption2).foregroundStyle(.secondary)
+                Text("SHA1…").font(.caption2).foregroundStyle(.secondary)
             }
+            .accessibilityLabel(String(localized: "download.verifying"))
         case .completed:
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green).font(.caption)
+                .foregroundStyle(.green)
+                .accessibilityLabel(String(localized: "download.completed"))
         case .failed:
             Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(.red).font(.caption)
+                .foregroundStyle(.red)
+                .accessibilityLabel(String(localized: "detail.section.failed"))
         }
     }
 }
@@ -783,44 +778,75 @@ struct DetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isActivityCollapsed = false
 
-    private var managedDevices: [IPSWDevice] { viewModel.managedDownloadDevices }
+    private var managedDevices: [IPSWDevice] {
+        viewModel.managedDownloadDevices
+    }
 
     private var activeDevices: [IPSWDevice] {
         managedDevices.filter { device in
             switch viewModel.downloadState(for: device) {
-            case .queued, .downloading, .verifying: return true
-            default: return false
+            case .queued, .downloading, .verifying:
+                return true
+            default:
+                return false
             }
         }
     }
 
     private var pausedDevices: [IPSWDevice] {
-        managedDevices.filter { if case .paused = viewModel.downloadState(for: $0) { return true }; return false }
+        managedDevices.filter { device in
+            if case .paused = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
     }
 
     private var readyDevices: [IPSWDevice] {
-        viewModel.orderedSelectedDevices.filter { if case .idle = viewModel.downloadState(for: $0) { return true }; return false }
+        viewModel.orderedSelectedDevices.filter { device in
+            if case .idle = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
     }
 
     private var completedDevices: [IPSWDevice] {
-        viewModel.orderedSelectedDevices.filter { if case .completed = viewModel.downloadState(for: $0) { return true }; return false }
+        viewModel.orderedSelectedDevices.filter { device in
+            if case .completed = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
     }
 
     private var failedDevices: [IPSWDevice] {
-        viewModel.orderedSelectedDevices.filter { if case .failed = viewModel.downloadState(for: $0) { return true }; return false }
+        viewModel.orderedSelectedDevices.filter { device in
+            if case .failed = viewModel.downloadState(for: device) {
+                return true
+            }
+            return false
+        }
     }
 
     private var recentActivityEntries: [ActivityLogEntry] {
-        guard !viewModel.selectedDeviceIDs.isEmpty else { return viewModel.recentActivityEntries }
+        guard !viewModel.selectedDeviceIDs.isEmpty else {
+            return viewModel.recentActivityEntries
+        }
         return viewModel.recentActivityEntries.filter { entry in
-            guard let id = entry.deviceIdentifier else { return true }
-            return viewModel.selectedDeviceIDs.contains(id)
+            guard let identifier = entry.deviceIdentifier else { return true }
+            return viewModel.selectedDeviceIDs.contains(identifier)
         }
     }
 
     private var headerStatusLine: String {
-        String(format: String(localized: "detail.header.status"),
-               readyDevices.count, activeDevices.count, completedDevices.count, failedDevices.count)
+        String(
+            format: String(localized: "detail.header.status"),
+            readyDevices.count,
+            activeDevices.count,
+            completedDevices.count,
+            failedDevices.count
+        )
     }
 
     private var isShowingEmptyState: Bool {
@@ -828,7 +854,10 @@ struct DetailView: View {
     }
 
     private var primaryControlTitle: String {
-        viewModel.hasActiveDownloads ? String(localized: "download.pause_all") : String(localized: "download.resume_all")
+        if viewModel.hasActiveDownloads {
+            return String(localized: "download.pause_all")
+        }
+        return String(localized: "download.resume_all")
     }
 
     private var primaryControlSystemImage: String {
@@ -838,10 +867,26 @@ struct DetailView: View {
     var body: some View {
         if isShowingEmptyState {
             VStack(spacing: 0) {
-                emptyStateView
+                VStack(spacing: 16) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                    Text(String(localized: "detail.empty"))
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 10) {
+                        instructionRow(number: "1", text: String(localized: "detail.empty.step1"))
+                        instructionRow(number: "2", text: String(localized: "detail.empty.step2"))
+                        instructionRow(number: "3", text: String(localized: "detail.empty.step3"))
+                    }
+                    .padding(.top, 4)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
 
                 if !recentActivityEntries.isEmpty {
                     Divider()
+
                     List {
                         ActivitySectionList(entries: recentActivityEntries, isCollapsed: $isActivityCollapsed) {
                             viewModel.clearActivityLog()
@@ -857,10 +902,10 @@ struct DetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 0) {
-                // Detail header
+                // Header
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(String(format: String(localized: "detail.header.selected"), viewModel.selectedDeviceIDs.count))
                                 .font(.subheadline.weight(.semibold))
                             Text(headerStatusLine)
@@ -873,9 +918,10 @@ struct DetailView: View {
                             }
                         }
                         Spacer()
+
                     }
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         SummaryChip(title: String(localized: "detail.section.managed"), count: managedDevices.count, color: .blue)
                         SummaryChip(title: String(localized: "detail.section.paused"), count: pausedDevices.count, color: .orange)
                         SummaryChip(title: String(localized: "detail.section.failed"), count: failedDevices.count, color: .red)
@@ -885,15 +931,15 @@ struct DetailView: View {
                         controlCenterPanel
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 14)
+                    RoundedRectangle(cornerRadius: 18)
                         .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 1)
                 )
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
@@ -925,51 +971,22 @@ struct DetailView: View {
         }
     }
 
-    // MARK: Empty State
-
-    private var emptyStateView: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "arrow.down.circle")
-                .font(.system(size: 44))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [settings.selectedTheme.tintColor, settings.selectedTheme.accentColor],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            Text(String(localized: "detail.empty"))
-                .font(.system(.title3, design: .rounded, weight: .medium))
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 8) {
-                instructionRow(number: "1", text: String(localized: "detail.empty.step1"))
-                instructionRow(number: "2", text: String(localized: "detail.empty.step2"))
-                instructionRow(number: "3", text: String(localized: "detail.empty.step3"))
-            }
-            .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-    }
-
-    // MARK: Control Center
-
     private var controlCenterPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(String(localized: "menu.downloads"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(viewModel.globalProgressTitle)
-                        .font(.subheadline.weight(.bold))
+                        .font(.headline)
                 }
+
                 Spacer()
+
                 if !viewModel.downloadStatsText.isEmpty {
                     Text(viewModel.downloadStatsText)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -977,9 +994,8 @@ struct DetailView: View {
 
             ProgressView(value: viewModel.globalProgressFraction)
                 .progressViewStyle(.linear)
-                .tint(settings.selectedTheme.accentColor)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button {
                     if viewModel.hasActiveDownloads {
                         viewModel.pauseAllManagedDownloads()
@@ -988,55 +1004,55 @@ struct DetailView: View {
                     }
                 } label: {
                     Label(primaryControlTitle, systemImage: primaryControlSystemImage)
-                        .font(.caption.weight(.bold))
+                        .font(.headline.weight(.bold))
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 36)
+                        .frame(minHeight: 52)
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
+                .controlSize(.large)
                 .disabled(!viewModel.hasActiveDownloads && !viewModel.hasPausedDownloads)
 
                 Button {
                     viewModel.resumeAllPausedDownloads()
                 } label: {
                     Label(String(localized: "download.resume_all"), systemImage: "play.circle.fill")
-                        .font(.caption.weight(.semibold))
+                        .font(.headline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 36)
+                        .frame(minHeight: 52)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .controlSize(.large)
                 .disabled(!viewModel.hasPausedDownloads)
 
                 Button(role: .destructive) {
                     viewModel.cancelAllManagedDownloads()
                 } label: {
                     Label(String(localized: "download.cancel_all"), systemImage: "stop.circle.fill")
-                        .font(.caption.weight(.semibold))
+                        .font(.headline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 36)
+                        .frame(minHeight: 52)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .controlSize(.large)
             }
         }
-        .padding(12)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(settings.selectedTheme.windowBackgroundColor(for: colorScheme).opacity(0.6))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(settings.selectedTheme.windowBackgroundColor(for: colorScheme).opacity(0.72))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(settings.selectedTheme.borderColor(for: colorScheme), lineWidth: 1)
         )
     }
 
     private func instructionRow(number: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
             Text(number)
-                .font(.caption2.weight(.bold))
+                .font(.caption.weight(.bold))
                 .foregroundStyle(.white)
-                .frame(width: 20, height: 20)
+                .frame(width: 22, height: 22)
                 .background(Circle().fill(Color.accentColor))
             Text(text)
                 .font(.callout)
@@ -1044,8 +1060,6 @@ struct DetailView: View {
         }
     }
 }
-
-// MARK: - Activity Section
 
 private struct ActivitySectionList: View {
     let entries: [ActivityLogEntry]
@@ -1057,12 +1071,11 @@ private struct ActivitySectionList: View {
             Section {
                 if !isCollapsed {
                     ForEach(entries) { entry in
-                        HStack(alignment: .top, spacing: 8) {
+                        HStack(alignment: .top, spacing: 10) {
                             Image(systemName: entry.kind.systemImage)
                                 .foregroundStyle(color(for: entry.kind))
-                                .frame(width: 14, alignment: .center)
-                                .font(.caption)
-                            VStack(alignment: .leading, spacing: 1) {
+                                .frame(width: 16, alignment: .center)
+                            VStack(alignment: .leading, spacing: 2) {
                                 HStack {
                                     Text(entry.title)
                                         .font(.caption.weight(.semibold))
@@ -1094,11 +1107,11 @@ private struct ActivitySectionList: View {
                     }
                 }
             } header: {
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     Button {
                         withAnimation { isCollapsed.toggle() }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
@@ -1129,15 +1142,17 @@ private struct ActivitySectionList: View {
 
     private func color(for kind: ActivityLogKind) -> Color {
         switch kind {
-        case .info: return .blue
-        case .success: return .green
-        case .warning: return .orange
-        case .error: return .red
+        case .info:
+            return .blue
+        case .success:
+            return .green
+        case .warning:
+            return .orange
+        case .error:
+            return .red
         }
     }
 }
-
-// MARK: - Summary Chip
 
 private struct SummaryChip: View {
     let title: String
@@ -1145,16 +1160,16 @@ private struct SummaryChip: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Text("\(count)")
-                .font(.caption2.weight(.bold))
+                .font(.caption.weight(.bold))
                 .monospacedDigit()
                 .modifier(NumericTextTransitionIfAvailable())
             Text(title)
-                .font(.caption2.weight(.medium))
+                .font(.caption.weight(.semibold))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(color.opacity(0.12), in: Capsule())
         .foregroundStyle(color)
         .accessibilityLabel("\(count) \(title)")
@@ -1171,8 +1186,6 @@ private struct NumericTextTransitionIfAvailable: ViewModifier {
     }
 }
 
-// MARK: - Download Section Lists
-
 private struct DownloadSectionList: View {
     let title: String
     let devices: [IPSWDevice]
@@ -1188,7 +1201,7 @@ private struct DownloadSectionList: View {
             Section {
                 ForEach(devices) { device in
                     DownloadTaskCard(device: device, viewModel: viewModel, allowsManagedSelection: allowsManagedSelection)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .contextMenu {
@@ -1272,7 +1285,9 @@ private struct DownloadSectionList: View {
                 titleVisibility: .visible
             ) {
                 Button(String(localized: "confirm.cancel_download.action"), role: .destructive) {
-                    if let device = devicePendingCancel { viewModel.cancelDownload(for: device) }
+                    if let device = devicePendingCancel {
+                        viewModel.cancelDownload(for: device)
+                    }
                     devicePendingCancel = nil
                 }
             } message: {
@@ -1284,7 +1299,9 @@ private struct DownloadSectionList: View {
                 titleVisibility: .visible
             ) {
                 Button(String(localized: "confirm.remove_device.action"), role: .destructive) {
-                    if let device = devicePendingRemoval { viewModel.removeDevice(device) }
+                    if let device = devicePendingRemoval {
+                        viewModel.removeDevice(device)
+                    }
                     devicePendingRemoval = nil
                 }
             } message: {
@@ -1300,14 +1317,16 @@ private struct ManagedDownloadsSectionList: View {
     let pausedDevices: [IPSWDevice]
     @ObservedObject var viewModel: IPSWViewModel
 
-    private var managedDevices: [IPSWDevice] { activeDevices + pausedDevices }
+    private var managedDevices: [IPSWDevice] {
+        activeDevices + pausedDevices
+    }
 
     var body: some View {
         if !managedDevices.isEmpty {
             Section {
                 ForEach(managedDevices) { device in
                     DownloadTaskCard(device: device, viewModel: viewModel, allowsManagedSelection: false)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }
@@ -1320,8 +1339,6 @@ private struct ManagedDownloadsSectionList: View {
     }
 }
 
-// MARK: - Local Firmware Section
-
 private struct LocalFirmwareSectionList: View {
     let records: [LocalFirmwareRecord]
     @ObservedObject var viewModel: IPSWViewModel
@@ -1330,25 +1347,25 @@ private struct LocalFirmwareSectionList: View {
         if !records.isEmpty {
             Section {
                 ForEach(records) { record in
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Image(systemName: "externaldrive.fill")
                             .foregroundStyle(.mint)
-                            .frame(width: 16)
-                        VStack(alignment: .leading, spacing: 2) {
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(record.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.headline)
                             Text(record.subtitle)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Text(record.fileName)
                                 .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
                         Spacer()
-                        VStack(alignment: .trailing, spacing: 3) {
+                        VStack(alignment: .trailing, spacing: 4) {
                             Text(record.sizeText)
-                                .font(.caption.weight(.medium))
+                                .font(.caption.weight(.semibold))
                             if let modifiedAt = record.modifiedAt {
                                 Text(modifiedAt, style: .date)
                                     .font(.caption2)
@@ -1358,10 +1375,10 @@ private struct LocalFirmwareSectionList: View {
                                 viewModel.revealInFinder(record.location)
                             }
                             .buttonStyle(.bordered)
-                            .controlSize(.mini)
+                            .controlSize(.small)
                         }
                     }
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 4)
                     .listRowBackground(Color.clear)
                     .contextMenu {
                         Button {
@@ -1404,66 +1421,111 @@ struct DownloadTaskCard: View {
     private var isManagedSelected: Bool { viewModel.isManagedDownloadSelected(device) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Left accent strip
-            RoundedRectangle(cornerRadius: 2)
-                .fill(stateAccentColor)
-                .frame(width: 3)
-                .padding(.vertical, 4)
-
-            VStack(alignment: .leading, spacing: 6) {
-                // Header row
-                HStack {
-                    if allowsManagedSelection {
-                        Button {
-                            viewModel.toggleManagedDownloadSelection(device)
-                        } label: {
-                            Image(systemName: isManagedSelected ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(isManagedSelected ? Color.accentColor : .secondary)
-                        }
-                        .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 8) {
+            // Device name & identifier
+            HStack {
+                if allowsManagedSelection {
+                    Button {
+                        viewModel.toggleManagedDownloadSelection(device)
+                    } label: {
+                        Image(systemName: isManagedSelected ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(isManagedSelected ? Color.accentColor : .secondary)
                     }
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(device.name)
-                            .font(.callout.weight(.semibold))
-                        Text(device.identifier)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    Spacer()
-                    statusBadge
-                    actionButton
+                    .buttonStyle(.plain)
                 }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(device.name)
+                        .font(.subheadline.weight(.semibold))
+                    Text(device.identifier)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                statusBadge
+                actionButton
+            }
 
-                // Firmware info
-                if let fw = task?.firmware {
-                    HStack(spacing: 5) {
-                        Text("\(fw.version) (\(fw.buildid))")
-                        Text("\u{2022}")
-                        Text(fw.filesizeMB)
-                        if fw.signed {
-                            Text("\u{2022}")
-                            Text(String(localized: "download.signed"))
-                                .foregroundStyle(.green)
-                        }
+            if let fw = task?.firmware {
+                HStack(spacing: 6) {
+                    Text("\(fw.version) (\(fw.buildid))")
+                    Text("•")
+                    Text(fw.filesizeMB)
+                    if fw.signed {
+                        Text("•")
+                        Text(String(localized: "download.signed"))
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+
+            switch state {
+            case .queued:
+                queuedStateView
+            case .paused:
+                pausedStateView
+            case .verifying:
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(String(localized: "download.verifying"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            case .downloading(let progress):
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                    HStack {
+                        Text(String(localized: "download.in_progress"))
+                        Spacer()
+                        Text(task?.progressDetails?.percentText ?? "\(Int(progress * 100))%")
+                            .monospacedDigit()
                     }
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 }
+            case .completed(let url):
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(String(localized: "download.completed"))
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Button(String(localized: "download.show_in_finder")) {
+                        viewModel.revealInFinder(url)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .font(.caption)
+            case .failed(let error):
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .lineLimit(2)
+                    }
+                    .font(.caption)
 
-                // State-specific content
-                stateContent
+                    if let attemptLabel {
+                        Text(attemptLabel)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            case .idle:
+                EmptyView()
             }
-            .padding(.leading, 8)
-            .padding(.trailing, 10)
-            .padding(.vertical, 8)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(cardBorder, lineWidth: 0.5)
+                .strokeBorder(cardBorder, lineWidth: 1)
         )
         .modifier(PulsingBorder(isActive: isDownloading))
         .animation(.easeInOut(duration: 0.3), value: stateKey)
@@ -1471,100 +1533,6 @@ struct DownloadTaskCard: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(cardAccessibilityLabel)
     }
-
-    // MARK: State Content
-
-    @ViewBuilder
-    private var stateContent: some View {
-        switch state {
-        case .queued:
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text(String(localized: "download.queued"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let label = attemptLabel {
-                    Text(label).font(.caption2).foregroundStyle(.tertiary)
-                }
-            }
-        case .paused:
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Image(systemName: "pause.circle.fill").foregroundStyle(.orange)
-                    Text(String(localized: "download.paused"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let label = attemptLabel {
-                    Text(label).font(.caption2).foregroundStyle(.tertiary)
-                }
-            }
-        case .verifying:
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text(String(localized: "download.verifying"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        case .downloading(let progress):
-            VStack(alignment: .leading, spacing: 3) {
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                HStack {
-                    if let details = task?.progressDetails {
-                        Text(details.transferredText)
-                            .monospacedDigit()
-                        Spacer()
-                        Text(details.speedText)
-                            .fontWeight(.medium)
-                            .monospacedDigit()
-                        if !details.etaText.isEmpty {
-                            Text("\u{2022}")
-                                .foregroundStyle(.tertiary)
-                            Text(String(format: String(localized: "download.eta"), details.etaText))
-                                .monospacedDigit()
-                        }
-                    } else {
-                        Text(String(localized: "download.in_progress"))
-                        Spacer()
-                        Text("\(Int(progress * 100))%")
-                            .monospacedDigit()
-                    }
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            }
-        case .completed(let url):
-            HStack {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text(String(localized: "download.completed")).foregroundStyle(.green)
-                Spacer()
-                Button(String(localized: "download.show_in_finder")) {
-                    viewModel.revealInFinder(url)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.mini)
-            }
-            .font(.caption)
-        case .failed(let error):
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-                    Text(error).foregroundStyle(.red).lineLimit(2)
-                }
-                .font(.caption)
-                if let label = attemptLabel {
-                    Text(label).font(.caption2).foregroundStyle(.tertiary)
-                }
-            }
-        case .idle:
-            EmptyView()
-        }
-    }
-
-    // MARK: Helpers
 
     private var isDownloading: Bool {
         if case .downloading = state { return true }
@@ -1583,25 +1551,13 @@ struct DownloadTaskCard: View {
         }
     }
 
-    private var stateAccentColor: Color {
-        switch state {
-        case .idle: return .clear
-        case .queued: return .orange
-        case .paused: return .orange
-        case .downloading: return .blue
-        case .verifying: return .mint
-        case .completed: return .green
-        case .failed: return .red
-        }
-    }
-
     private var cardTooltip: String {
         var parts = [device.name, device.identifier]
         if let fw = task?.firmware {
             parts.append("\(device.osLabel) \(fw.version) (\(fw.buildid))")
             parts.append(fw.filesizeMB)
         }
-        return parts.joined(separator: " \u{2014} ")
+        return parts.joined(separator: " — ")
     }
 
     private var cardAccessibilityLabel: String {
@@ -1674,26 +1630,38 @@ struct DownloadTaskCard: View {
     }
 
     @ViewBuilder
-    private var statusBadge: some View {
-        switch state {
-        case .idle: EmptyView()
-        case .queued: badge(String(localized: "download.queued"), color: .orange)
-        case .paused: badge(String(localized: "download.paused"), color: .orange)
-        case .downloading: badge(String(localized: "download.in_progress"), color: .blue)
-        case .verifying: badge(String(localized: "download.verifying"), color: .mint)
-        case .completed: badge(String(localized: "download.completed"), color: .green)
-        case .failed: badge(String(localized: "detail.section.failed"), color: .red)
+    private var queuedStateView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(String(localized: "download.queued"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let attemptLabel {
+                Text(attemptLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
-    private func badge(_ title: String, color: Color) -> some View {
-        Text(title)
-            .font(.system(size: 10, weight: .semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.12))
-            .foregroundStyle(color)
-            .clipShape(Capsule())
+    @ViewBuilder
+    private var pausedStateView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "pause.circle.fill")
+                    .foregroundStyle(.orange)
+                Text(String(localized: "download.paused"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let attemptLabel {
+                Text(attemptLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var attemptLabel: String? {
@@ -1701,23 +1669,63 @@ struct DownloadTaskCard: View {
         return String(format: String(localized: "download.attempt"), task.attemptCount, 3)
     }
 
+    @ViewBuilder
+    private var statusBadge: some View {
+        switch state {
+        case .idle:
+            EmptyView()
+        case .queued:
+            badge(String(localized: "download.queued"), color: .orange)
+        case .paused:
+            badge(String(localized: "download.paused"), color: .orange)
+        case .downloading:
+            badge(String(localized: "download.in_progress"), color: .blue)
+        case .verifying:
+            badge(String(localized: "download.verifying"), color: .mint)
+        case .completed:
+            badge(String(localized: "download.completed"), color: .green)
+        case .failed:
+            badge(String(localized: "detail.section.failed"), color: .red)
+        }
+    }
+
+    private func badge(_ title: String, color: Color) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12))
+            .foregroundStyle(color)
+            .clipShape(Capsule())
+    }
+
     private var cardBackground: Color {
         switch state {
-        case .completed: return .green.opacity(0.03)
-        case .failed: return .red.opacity(0.04)
-        case .paused: return .orange.opacity(0.04)
-        case .downloading, .queued, .verifying: return .blue.opacity(0.03)
-        case .idle: return Color(NSColor.windowBackgroundColor)
+        case .completed:
+            return .green.opacity(0.04)
+        case .failed:
+            return .red.opacity(0.05)
+        case .paused:
+            return .orange.opacity(0.05)
+        case .downloading, .queued, .verifying:
+            return .blue.opacity(0.04)
+        case .idle:
+            return Color(NSColor.windowBackgroundColor)
         }
     }
 
     private var cardBorder: Color {
         switch state {
-        case .completed: return .green.opacity(0.15)
-        case .failed: return .red.opacity(0.15)
-        case .paused: return .orange.opacity(0.15)
-        case .downloading, .queued, .verifying: return .blue.opacity(0.12)
-        case .idle: return .primary.opacity(0.06)
+        case .completed:
+            return .green.opacity(0.18)
+        case .failed:
+            return .red.opacity(0.18)
+        case .paused:
+            return .orange.opacity(0.18)
+        case .downloading, .queued, .verifying:
+            return .blue.opacity(0.16)
+        case .idle:
+            return .primary.opacity(0.08)
         }
     }
 }
@@ -1732,13 +1740,13 @@ private struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Image(systemName: symbol)
-                    .font(.system(size: 9))
+                    .font(.caption2)
                 Text(label)
                     .font(.caption2.weight(.medium))
             }
-            .padding(.horizontal, 7)
+            .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(isActive ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08))
             .foregroundStyle(isActive ? Color.accentColor : .secondary)
@@ -1748,7 +1756,7 @@ private struct FilterChip: View {
     }
 }
 
-// MARK: - Pulsing Border
+// MARK: - Pulsing Border Modifier
 
 private struct PulsingBorder: ViewModifier {
     let isActive: Bool
@@ -1758,16 +1766,20 @@ private struct PulsingBorder: ViewModifier {
         content
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.blue.opacity(pulse ? 0.5 : 0.12), lineWidth: 2)
+                    .strokeBorder(Color.blue.opacity(pulse ? 0.5 : 0.15), lineWidth: 2)
                     .opacity(isActive ? 1 : 0)
             )
             .onAppear {
                 guard isActive else { return }
-                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { pulse = true }
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
             }
             .onChange(of: isActive) { _, active in
                 if active {
-                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { pulse = true }
+                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                        pulse = true
+                    }
                 } else {
                     withAnimation { pulse = false }
                 }

@@ -5,6 +5,8 @@
 
 import SwiftUI
 
+// MARK: - Platform Compatibility
+
 enum AppCompatibility {
     static var usesLegacySwiftUIWorkarounds: Bool {
         #if arch(x86_64)
@@ -15,10 +17,14 @@ enum AppCompatibility {
     }
 }
 
+// MARK: - Links
+
 enum AppLinks {
     static let github = URL(string: "https://github.com/iCosiSenpai") ?? URL(fileURLWithPath: NSHomeDirectory())
     static let support = URL(string: "https://paypal.me/AlessioCosi") ?? URL(fileURLWithPath: NSHomeDirectory())
 }
+
+// MARK: - Appearance Mode
 
 enum AppAppearanceMode: String, CaseIterable, Identifiable {
     case system
@@ -29,26 +35,22 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 
     var localizedTitle: String {
         switch self {
-        case .system:
-            return String(localized: "settings.appearance.mode.system")
-        case .light:
-            return String(localized: "settings.appearance.mode.light")
-        case .dark:
-            return String(localized: "settings.appearance.mode.dark")
+        case .system: return String(localized: "settings.appearance.mode.system")
+        case .light:  return String(localized: "settings.appearance.mode.light")
+        case .dark:   return String(localized: "settings.appearance.mode.dark")
         }
     }
 
     var preferredColorScheme: ColorScheme? {
         switch self {
-        case .system:
-            return nil
-        case .light:
-            return .light
-        case .dark:
-            return .dark
+        case .system: return nil
+        case .light:  return .light
+        case .dark:   return .dark
         }
     }
 }
+
+// MARK: - App Theme
 
 enum AppTheme: String, CaseIterable, Identifiable {
     case cobalt
@@ -60,110 +62,89 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var localizedTitle: String {
         switch self {
-        case .cobalt:
-            return String(localized: "settings.appearance.theme.cobalt")
-        case .forest:
-            return String(localized: "settings.appearance.theme.forest")
-        case .sunset:
-            return String(localized: "settings.appearance.theme.sunset")
-        case .graphite:
-            return String(localized: "settings.appearance.theme.graphite")
+        case .cobalt:   return String(localized: "settings.appearance.theme.cobalt")
+        case .forest:   return String(localized: "settings.appearance.theme.forest")
+        case .sunset:   return String(localized: "settings.appearance.theme.sunset")
+        case .graphite: return String(localized: "settings.appearance.theme.graphite")
         }
     }
 
     var localizedDescription: String {
         switch self {
-        case .cobalt:
-            return String(localized: "settings.appearance.theme.cobalt.description")
-        case .forest:
-            return String(localized: "settings.appearance.theme.forest.description")
-        case .sunset:
-            return String(localized: "settings.appearance.theme.sunset.description")
-        case .graphite:
-            return String(localized: "settings.appearance.theme.graphite.description")
+        case .cobalt:   return String(localized: "settings.appearance.theme.cobalt.description")
+        case .forest:   return String(localized: "settings.appearance.theme.forest.description")
+        case .sunset:   return String(localized: "settings.appearance.theme.sunset.description")
+        case .graphite: return String(localized: "settings.appearance.theme.graphite.description")
         }
     }
 
+    // MARK: Core Colors
+
     var tintColor: Color {
         switch self {
-        case .cobalt:
-            return Color(red: 0.10, green: 0.44, blue: 0.94)
-        case .forest:
-            return Color(red: 0.11, green: 0.53, blue: 0.36)
-        case .sunset:
-            return Color(red: 0.84, green: 0.36, blue: 0.18)
-        case .graphite:
-            return Color(red: 0.33, green: 0.38, blue: 0.46)
+        case .cobalt:   return Color(red: 0.15, green: 0.42, blue: 0.96)
+        case .forest:   return Color(red: 0.05, green: 0.58, blue: 0.42)
+        case .sunset:   return Color(red: 0.93, green: 0.38, blue: 0.08)
+        case .graphite: return Color(red: 0.38, green: 0.44, blue: 0.55)
         }
     }
 
     var accentColor: Color {
         switch self {
-        case .cobalt:
-            return Color(red: 0.35, green: 0.72, blue: 1.00)
-        case .forest:
-            return Color(red: 0.49, green: 0.83, blue: 0.62)
-        case .sunset:
-            return Color(red: 0.99, green: 0.67, blue: 0.35)
-        case .graphite:
-            return Color(red: 0.74, green: 0.77, blue: 0.85)
+        case .cobalt:   return Color(red: 0.25, green: 0.72, blue: 0.98)
+        case .forest:   return Color(red: 0.22, green: 0.82, blue: 0.58)
+        case .sunset:   return Color(red: 0.99, green: 0.60, blue: 0.28)
+        case .graphite: return Color(red: 0.60, green: 0.66, blue: 0.76)
         }
     }
 
-    func heroGradient(for colorScheme: ColorScheme) -> LinearGradient {
-        let colors: [Color]
+    /// Soft glow for atmospheric canvas effects
+    fileprivate var glowColor: Color {
         switch self {
-        case .cobalt:
-            colors = [
-                tintColor.opacity(colorScheme == .dark ? 0.20 : 0.16),
-                accentColor.opacity(colorScheme == .dark ? 0.12 : 0.08),
-                surfaceColor(for: colorScheme)
-            ]
-        case .forest:
-            colors = [
-                tintColor.opacity(colorScheme == .dark ? 0.18 : 0.14),
-                accentColor.opacity(colorScheme == .dark ? 0.10 : 0.08),
-                surfaceColor(for: colorScheme)
-            ]
-        case .sunset:
-            colors = [
-                tintColor.opacity(colorScheme == .dark ? 0.18 : 0.14),
-                accentColor.opacity(colorScheme == .dark ? 0.10 : 0.08),
-                surfaceColor(for: colorScheme)
-            ]
-        case .graphite:
-            colors = [
-                tintColor.opacity(colorScheme == .dark ? 0.18 : 0.12),
-                accentColor.opacity(colorScheme == .dark ? 0.08 : 0.06),
-                surfaceColor(for: colorScheme)
-            ]
+        case .cobalt:   return Color(red: 0.30, green: 0.55, blue: 1.00)
+        case .forest:   return Color(red: 0.15, green: 0.70, blue: 0.50)
+        case .sunset:   return Color(red: 1.00, green: 0.48, blue: 0.18)
+        case .graphite: return Color(red: 0.50, green: 0.55, blue: 0.68)
         }
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    // MARK: Gradient & Surface
+
+    func heroGradient(for colorScheme: ColorScheme) -> LinearGradient {
+        let strength = colorScheme == .dark ? 0.22 : 0.14
+        return LinearGradient(
+            colors: [
+                tintColor.opacity(strength),
+                accentColor.opacity(strength * 0.45),
+                .clear
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     func canvasColors(for colorScheme: ColorScheme) -> [Color] {
         if colorScheme == .dark {
             switch self {
             case .cobalt:
-                return [Color(red: 0.07, green: 0.09, blue: 0.12), Color(red: 0.10, green: 0.13, blue: 0.18)]
+                return [Color(red: 0.04, green: 0.06, blue: 0.11), Color(red: 0.07, green: 0.10, blue: 0.16)]
             case .forest:
-                return [Color(red: 0.07, green: 0.09, blue: 0.10), Color(red: 0.09, green: 0.13, blue: 0.11)]
+                return [Color(red: 0.04, green: 0.07, blue: 0.06), Color(red: 0.06, green: 0.11, blue: 0.09)]
             case .sunset:
-                return [Color(red: 0.10, green: 0.09, blue: 0.08), Color(red: 0.14, green: 0.11, blue: 0.09)]
+                return [Color(red: 0.08, green: 0.06, blue: 0.04), Color(red: 0.13, green: 0.09, blue: 0.06)]
             case .graphite:
-                return [Color(red: 0.08, green: 0.08, blue: 0.09), Color(red: 0.12, green: 0.12, blue: 0.14)]
+                return [Color(red: 0.06, green: 0.06, blue: 0.08), Color(red: 0.10, green: 0.11, blue: 0.14)]
             }
         }
-
         switch self {
         case .cobalt:
-            return [Color(red: 0.95, green: 0.97, blue: 0.99), Color(red: 0.92, green: 0.95, blue: 0.99)]
+            return [Color(red: 0.95, green: 0.97, blue: 1.00), Color(red: 0.88, green: 0.93, blue: 1.00)]
         case .forest:
-            return [Color(red: 0.95, green: 0.98, blue: 0.96), Color(red: 0.92, green: 0.96, blue: 0.94)]
+            return [Color(red: 0.94, green: 0.99, blue: 0.96), Color(red: 0.85, green: 0.97, blue: 0.91)]
         case .sunset:
-            return [Color(red: 0.99, green: 0.96, blue: 0.93), Color(red: 0.98, green: 0.93, blue: 0.89)]
+            return [Color(red: 1.00, green: 0.97, blue: 0.93), Color(red: 1.00, green: 0.92, blue: 0.84)]
         case .graphite:
-            return [Color(red: 0.95, green: 0.95, blue: 0.96), Color(red: 0.92, green: 0.93, blue: 0.95)]
+            return [Color(red: 0.96, green: 0.97, blue: 0.98), Color(red: 0.90, green: 0.92, blue: 0.95)]
         }
     }
 
@@ -174,21 +155,29 @@ enum AppTheme: String, CaseIterable, Identifiable {
     func surfaceColor(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
             ? Color.white.opacity(0.055)
-            : Color.white.opacity(0.78)
+            : Color.white.opacity(0.82)
     }
 
     func secondarySurfaceColor(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.white.opacity(0.075)
-            : tintColor.opacity(0.08)
+            ? Color.white.opacity(0.07)
+            : tintColor.opacity(0.06)
     }
 
     func borderColor(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
+            ? Color.white.opacity(0.08)
+            : tintColor.opacity(0.10)
+    }
+
+    func elevatedSurfaceColor(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
             ? Color.white.opacity(0.10)
-            : tintColor.opacity(0.14)
+            : Color.white.opacity(0.94)
     }
 }
+
+// MARK: - Canvas Background
 
 struct ThemeCanvasBackground: View {
     let theme: AppTheme
@@ -196,22 +185,37 @@ struct ThemeCanvasBackground: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: theme.canvasColors(for: colorScheme), startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(
+                colors: theme.canvasColors(for: colorScheme),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             if !AppCompatibility.usesLegacySwiftUIWorkarounds {
-                LinearGradient(
+                RadialGradient(
                     colors: [
-                        theme.tintColor.opacity(colorScheme == .dark ? 0.10 : 0.05),
+                        theme.glowColor.opacity(colorScheme == .dark ? 0.07 : 0.04),
                         .clear
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    center: .topLeading,
+                    startRadius: 0,
+                    endRadius: 600
                 )
-                .blendMode(.plusLighter)
+                RadialGradient(
+                    colors: [
+                        theme.accentColor.opacity(colorScheme == .dark ? 0.03 : 0.02),
+                        .clear
+                    ],
+                    center: .bottomTrailing,
+                    startRadius: 0,
+                    endRadius: 500
+                )
             }
         }
         .ignoresSafeArea()
     }
 }
+
+// MARK: - Theme Preview Card
 
 struct ThemePreviewCard: View {
     let theme: AppTheme
@@ -220,36 +224,58 @@ struct ThemePreviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            RoundedRectangle(cornerRadius: 14)
-                .fill(theme.heroGradient(for: colorScheme))
-                .frame(height: 72)
-                .overlay(alignment: .topTrailing) {
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(.white)
-                            .padding(10)
-                    }
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [theme.tintColor, theme.accentColor],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(height: 56)
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
                 }
+            }
 
-            Text(theme.localizedTitle)
-                .font(.headline)
-
-            Text(theme.localizedDescription)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(theme.localizedTitle)
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                Text(theme.localizedDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(theme.surfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(isSelected ? theme.tintColor : theme.borderColor(for: colorScheme), lineWidth: isSelected ? 2 : 1)
-        }
-        .shadow(color: .black.opacity(isSelected ? 0.14 : 0.05), radius: isSelected ? 14 : 6, y: isSelected ? 8 : 4)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(theme.surfaceColor(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                    isSelected ? theme.tintColor : theme.borderColor(for: colorScheme),
+                    lineWidth: isSelected ? 2.5 : 0.5
+                )
+        )
+        .shadow(
+            color: isSelected ? theme.tintColor.opacity(0.18) : .black.opacity(0.04),
+            radius: isSelected ? 10 : 4,
+            y: isSelected ? 4 : 2
+        )
+        .scaleEffect(isSelected ? 1.0 : 0.98)
+        .animation(.easeOut(duration: 0.2), value: isSelected)
     }
 }
+
+// MARK: - View Modifiers
 
 struct ThemePanelBackground: ViewModifier {
     let theme: AppTheme
@@ -258,10 +284,10 @@ struct ThemePanelBackground: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(theme.surfaceColor(for: colorScheme), in: RoundedRectangle(cornerRadius: cornerRadius))
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(theme.borderColor(for: colorScheme), lineWidth: 1)
+                    .stroke(theme.borderColor(for: colorScheme), lineWidth: 0.5)
             )
     }
 }
@@ -269,15 +295,17 @@ struct ThemePanelBackground: ViewModifier {
 struct ThemeMetricCardBackground: ViewModifier {
     let tint: Color
     let cornerRadius: CGFloat
-
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content
-            .background(tint.opacity(colorScheme == .dark ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: cornerRadius))
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(tint.opacity(colorScheme == .dark ? 0.14 : 0.08))
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(tint.opacity(colorScheme == .dark ? 0.28 : 0.20), lineWidth: 1)
+                    .stroke(tint.opacity(colorScheme == .dark ? 0.20 : 0.14), lineWidth: 0.5)
             )
     }
 }

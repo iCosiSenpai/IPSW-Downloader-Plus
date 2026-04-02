@@ -64,7 +64,7 @@ struct SettingsView: View {
                 .padding(.vertical, 10)
                 .background(.bar)
             }
-            .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 18)
+            .themePanelBackground(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 22)
             .padding(14)
         }
         .background(settings.selectedTheme.windowBackgroundColor(for: colorScheme))
@@ -79,11 +79,12 @@ private struct GeneralSettingsTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 SettingsGroup(title: String(localized: "settings.appearance.title")) {
                     AppearanceSettingsSection(settings: settings)
                 }
 
+                // Startup
                 SettingsGroup(title: String(localized: "settings.general.startup.title")) {
                     VStack(alignment: .leading, spacing: 10) {
                         Toggle(String(localized: "settings.general.startup.show_welcome"), isOn: $settings.showWelcomeOnStartup)
@@ -98,6 +99,7 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
+                // Obsolete firmware
                 SettingsGroup(title: String(localized: "settings.general.obsolete.title")) {
                     VStack(alignment: .leading, spacing: 6) {
                         Picker("", selection: $settings.deleteMode) {
@@ -113,6 +115,7 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
+                // Destination folders
                 SettingsGroup(title: String(localized: "settings.general.folders.title")) {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 10) {
@@ -156,9 +159,10 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
+                // Full Disk Access — banner con stato dinamico e guida guidata
                 FDAStatusBanner(showGuide: true)
             }
-            .padding(18)
+            .padding(20)
         }
     }
 
@@ -183,7 +187,7 @@ private struct AppearanceSettingsSection: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(String(localized: "settings.appearance.mode.title"))
                     .font(.subheadline.weight(.semibold))
@@ -224,6 +228,7 @@ private struct AppearanceSettingsSection: View {
     }
 }
 
+
 // MARK: - Download Tab
 
 private struct DownloadSettingsTab: View {
@@ -231,7 +236,9 @@ private struct DownloadSettingsTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
+
+                // Integrity
                 SettingsGroup(title: String(localized: "settings.download.integrity.title")) {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(String(localized: "settings.download.integrity.toggle"), isOn: $settings.verifyChecksumAfterDownload)
@@ -241,6 +248,7 @@ private struct DownloadSettingsTab: View {
                     }
                 }
 
+                // Parallel downloads
                 SettingsGroup(title: String(localized: "settings.download.parallel.title")) {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 12) {
@@ -255,6 +263,7 @@ private struct DownloadSettingsTab: View {
                     }
                 }
 
+                // Notifications
                 SettingsGroup(title: String(localized: "settings.download.notify.title")) {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(String(localized: "settings.download.notify.toggle"), isOn: $settings.notifyOnDownloadComplete)
@@ -264,19 +273,21 @@ private struct DownloadSettingsTab: View {
                     }
                 }
 
+                // Folder size
                 SettingsGroup(title: String(localized: "settings.download.folder_size.title")) {
                     FolderSizeView()
                 }
             }
-            .padding(18)
+            .padding(20)
         }
     }
 }
 
+/// Shows current size of both IPSW folders.
 private struct FolderSizeView: View {
-    @State private var itunesSize: String = "\u{2026}"
-    @State private var configuratorSize: String = "\u{2026}"
-    @State private var customDirectorySize: String = "\u{2026}"
+    @State private var itunesSize: String = "…"
+    @State private var configuratorSize: String = "…"
+    @State private var customDirectorySize: String = "…"
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
@@ -356,7 +367,8 @@ private struct ScheduleSettingsTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
+
                 SettingsGroup(title: String(localized: "settings.schedule.autolaunch.title")) {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(String(localized: "settings.schedule.autolaunch.toggle"), isOn: $settings.autoLaunchEnabled)
@@ -472,7 +484,7 @@ private struct ScheduleSettingsTab: View {
                         }
                     }
 
-                    // Schedule summary
+                    // Summary
                     HStack(spacing: 8) {
                         if settings.isSchedulingOperationInProgress {
                             ProgressView()
@@ -489,6 +501,7 @@ private struct ScheduleSettingsTab: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.accentColor.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+
                 }
 
                 if settings.autoLaunchEnabled || settings.wakeScheduleActive || settings.wakeScheduleError != nil {
@@ -551,9 +564,9 @@ private struct ScheduleSettingsTab: View {
                 .padding(10)
                 .background(Color.yellow.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
             }
-            .padding(18)
+            .padding(20)
             .animation(.default, value: settings.autoLaunchEnabled)
         }
     }
@@ -610,7 +623,8 @@ private struct DeviceFilterTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
+
                 if !settings.hasAtLeastOneEnabledType {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
@@ -660,7 +674,7 @@ private struct DeviceFilterTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(18)
+            .padding(20)
         }
     }
 }
@@ -670,20 +684,18 @@ private struct DeviceFilterTab: View {
 private struct SettingsGroup<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .font(.headline)
+                .foregroundStyle(.primary)
             content
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-                )
+                .background(Color(NSColor.windowBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.08), lineWidth: 1))
         }
     }
 }
