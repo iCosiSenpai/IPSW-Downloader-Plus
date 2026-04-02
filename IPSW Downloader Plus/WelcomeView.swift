@@ -175,8 +175,8 @@ struct InitialSetupView: View {
                 Divider()
 
                 HStack(spacing: 8) {
-                    ForEach(Array(stepTitles.enumerated()), id: \.offset) { index, key in
-                        setupStepChip(index: index, key: key)
+                    ForEach(0..<stepTitles.count, id: \.self) { index in
+                        setupStepChip(index: index, key: stepTitles[index])
                     }
                     Spacer()
                 }
@@ -381,7 +381,7 @@ struct InitialSetupView: View {
     private func setupStepChip(index: Int, key: String) -> some View {
         let isReached = index <= selectedStep
         let isCurrent = index == selectedStep
-        Label(NSLocalizedString(key, comment: ""), systemImage: isReached ? "checkmark.circle.fill" : "circle")
+        Label(String(localized: String.LocalizationValue(key)), systemImage: isReached ? "checkmark.circle.fill" : "circle")
             .font(.caption.weight(isCurrent ? .semibold : .regular))
             .foregroundStyle(isReached ? Color.accentColor : .secondary)
             .padding(.horizontal, 10)
@@ -500,7 +500,8 @@ struct FDAStatusBanner: View {
                 if status != .granted {
                     Button(String(localized: "welcome.fda.button")) {
                         FullDiskAccessChecker.openPrivacySettings()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
                             refreshStatus()
                         }
                     }
@@ -523,7 +524,8 @@ struct FDAStatusBanner: View {
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(iconColor.opacity(0.25), lineWidth: 0.5))
         .onAppear { refreshStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
                 refreshStatus()
             }
         }

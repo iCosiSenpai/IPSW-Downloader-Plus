@@ -292,12 +292,12 @@ private struct DashboardMetricCard: View {
 private struct WindowChromeConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async { configureWindow(for: view) }
+        Task { @MainActor in configureWindow(for: view) }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { configureWindow(for: nsView) }
+        Task { @MainActor in configureWindow(for: nsView) }
     }
 
     private func configureWindow(for view: NSView) {
@@ -385,7 +385,7 @@ struct SidebarView: View {
 
             // Filter chips
             if !viewModel.availableDeviceTypeFilters.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
+                ScrollView(.horizontal) {
                     HStack(spacing: 5) {
                         FilterChip(
                             label: String(localized: "filter.all"),
@@ -410,6 +410,7 @@ struct SidebarView: View {
                     }
                     .padding(.horizontal, 8)
                 }
+                .scrollIndicators(.hidden)
                 .padding(.vertical, 3)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
@@ -518,6 +519,7 @@ struct SidebarView: View {
                     Image(systemName: "arrow.triangle.swap")
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "sidebar.invert_selection.help"))
                 .help(String(localized: "sidebar.invert_selection.help"))
 
                 Button {
@@ -530,6 +532,9 @@ struct SidebarView: View {
                     Image(systemName: viewModel.hasSelection ? "checkmark.circle.fill" : "checkmark.circle")
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(viewModel.hasSelection
+                      ? String(localized: "sidebar.deselect_all.help")
+                      : String(localized: "sidebar.select_all.help"))
                 .help(viewModel.hasSelection
                       ? String(localized: "sidebar.deselect_all.help")
                       : String(localized: "sidebar.select_all.help"))
@@ -721,6 +726,7 @@ struct DeviceRowView: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
         .accessibilityLabel(deviceAccessibilityLabel)
     }
 
@@ -1777,8 +1783,6 @@ private struct PulsingBorder: ViewModifier {
 
 // MARK: - Preview
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView(viewModel: IPSWViewModel())
-    }
+#Preview {
+    ContentView(viewModel: IPSWViewModel())
 }

@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [26.0.1] - 2026-04-02
+
+### Fixed
+
+- Fixed VoiceOver accessibility for device rows in the sidebar — tap gesture areas now correctly announce as interactive buttons.
+- Added missing accessibility labels to icon-only toolbar buttons (invert selection, select/deselect all) in the sidebar bottom bar.
+
+### Changed
+
+- Replaced deprecated `showsIndicators: false` with modern `.scrollIndicators(.hidden)` on the filter chips scroll view.
+- Replaced legacy `PreviewProvider` with the modern `#Preview` macro in ContentView.
+- Replaced `DispatchQueue.main.async` with `Task { @MainActor in }` in `WindowChromeConfigurator` for proper Swift concurrency.
+- Replaced `DispatchQueue.main.asyncAfter` with `Task.sleep(for:)` in `FDAStatusBanner` for proper Swift concurrency.
+- Replaced `NSLocalizedString` with `String(localized:)` in the setup step chips for consistent localization API usage.
+- Replaced `ForEach(Array(stepTitles.enumerated()), id: \.offset)` with range-based `ForEach(0..<count, id: \.self)` in the setup wizard.
+- Converted `reportBadge` free function to a proper `ReportBadge` View struct in SettingsView.
+
 ## [26.0] - 2026-03-23
 
 ### Added

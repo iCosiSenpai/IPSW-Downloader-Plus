@@ -405,10 +405,10 @@ private struct ScheduleSettingsTab: View {
                                 }
 
                                 HStack(spacing: 8) {
-                                    reportBadge(title: String(localized: "settings.schedule.report.checked"), value: report.checkedCount, tint: .blue)
-                                    reportBadge(title: String(localized: "settings.schedule.report.downloaded"), value: report.downloadedCount, tint: .green)
-                                    reportBadge(title: String(localized: "settings.schedule.report.skipped"), value: report.skippedCount, tint: .secondary)
-                                    reportBadge(title: String(localized: "settings.schedule.report.failed"), value: report.failedCount, tint: .orange)
+                                    ReportBadge(title: String(localized: "settings.schedule.report.checked"), value: report.checkedCount, tint: .blue)
+                                    ReportBadge(title: String(localized: "settings.schedule.report.downloaded"), value: report.downloadedCount, tint: .green)
+                                    ReportBadge(title: String(localized: "settings.schedule.report.skipped"), value: report.skippedCount, tint: .secondary)
+                                    ReportBadge(title: String(localized: "settings.schedule.report.failed"), value: report.failedCount, tint: .orange)
                                 }
 
                                 Button(String(localized: "settings.schedule.report.clear")) {
@@ -559,19 +559,25 @@ private struct ScheduleSettingsTab: View {
     }
 }
 
-private func reportBadge(title: String, value: Int, tint: Color) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-        Text(title)
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        Text("\(value)")
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(.primary)
+private struct ReportBadge: View {
+    let title: String
+    let value: Int
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text("\(value)")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(tint.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 8)
-    .background(tint.opacity(0.1))
-    .clipShape(RoundedRectangle(cornerRadius: 8))
 }
 
 private struct DayToggle: View {
