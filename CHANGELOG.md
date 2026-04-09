@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented in this file.
 
+## [26.1.0] - 2026-04-09
+
+### Added
+
+- `IPSWAPIService` protocol extracted from `IPSWAPIClient`, enabling dependency injection and testability.
+- `MockIPSWAPIClient` for unit testing with controllable stubs and call counters.
+- 23 new unit tests across 9 test suites: ViewModel API, DeviceCategory, DeviceModel, TrustedURL, FirmwareSelection, DownloadProgressDetails, IPSWError, FirmwareDecoding, ActivityLog.
+- Unified `build-test-archive.sh` CI/CD script: test → archive → export → verify architectures, with `--skip-test` flag.
+- SHA-256 checksum round-trip tests and sha1/sha1sum fallback decoding tests.
+
+### Changed
+
+- Updated app version to `26.1.0`.
+- `IPSWViewModel` now accepts an injectable `apiClient: any IPSWAPIService` parameter (defaults to `IPSWAPIClient.shared`).
+- Replaced all 10 direct `IPSWAPIClient.shared` references in ViewModel with the injected `apiClient` property.
+- Test count increased from 17 to 40 (all passing).
+
+### Fixed
+
+- Fixed `nonisolated(unsafe)` unnecessary warning on `IPSWAPIClient.shared`.
+- Fixed `TaskGroup` closure capture requiring explicit `self` for `apiClient` property.
+
 ## [26.0.1] - 2026-04-02
 
 ### Fixed

@@ -104,18 +104,40 @@ func isValidIPSWURL(_ url: URL) -> Bool {
     return trustedIPSWDomains.contains(where: { host == $0 || host.hasSuffix(".\($0)") })
 }
 
+// MARK: - API Client Protocol
+
+protocol IPSWAPIService: Sendable {
+    func fetchDevices() async throws -> [IPSWDevice]
+    func fetchDevice(identifier: String) async throws -> IPSWDevice
+    func fetchLatestIOSVersion() async throws -> String
+    func fetchSignedDeviceIdentifiers(for version: String) async throws -> Set<String>
+}
+
 // MARK: - API Client
 
-final class IPSWAPIClient {
+final class IPSWAPIClient: IPSWAPIService, @unchecked Sendable {
     static let shared = IPSWAPIClient()
 
     private let baseURL = "https://api.ipsw.me/v4"
     private let session: URLSession
     private let iOSReleaseVersionPattern = try? NSRegularExpression(pattern: #"(?:iOS|iPadOS)\s+(\d+(?:\.\d+)*)"#)
 
+    /// In-flight deduplication for fetchDevice calls
+    private let deduplicationQueue = DispatchQueue(label: "com.lupiatech.ipsw.api.dedup")
+    private var inFlightDeviceFetches: [String: Task<IPSWDevice, Error>] = [:]
+
     private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
+
+        // 20 MB memory / 100 MB disk cache for API responses
+        let cache = URLCache(
+            memoryCapacity: 20 * 1024 * 1024,
+            diskCapacity: 100 * 1024 * 1024
+        )
+        config.urlCache = cache
+        config.requestCachePolicy = .useProtocolCachePolicy
+
         self.session = URLSession(configuration: config)
     }
 
@@ -127,11 +149,25 @@ final class IPSWAPIClient {
     }
 
     func fetchDevice(identifier: String) async throws -> IPSWDevice {
-        let encoded = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? identifier
-        let url = try endpointURL(path: "/device/\(encoded)", queryItems: [URLQueryItem(name: "type", value: "ipsw")])
-        let (data, response) = try await session.data(from: url)
-        try validateResponse(response)
-        return try JSONDecoder().decode(IPSWDevice.self, from: data)
+        // Deduplicate concurrent requests for the same device
+        let existingTask: Task<IPSWDevice, Error>? = deduplicationQueue.sync {
+            inFlightDeviceFetches[identifier]
+        }
+        if let existingTask {
+            return try await existingTask.value
+        }
+        let task = Task<IPSWDevice, Error> { [self] in
+            defer {
+                deduplicationQueue.sync { _ = inFlightDeviceFetches.removeValue(forKey: identifier) }
+            }
+            let encoded = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? identifier
+            let url = try endpointURL(path: "/device/\(encoded)", queryItems: [URLQueryItem(name: "type", value: "ipsw")])
+            let (data, response) = try await session.data(from: url)
+            try validateResponse(response)
+            return try JSONDecoder().decode(IPSWDevice.self, from: data)
+        }
+        deduplicationQueue.sync { inFlightDeviceFetches[identifier] = task }
+        return try await task.value
     }
 
     /// Restituisce la versione iOS/iPadOS più recente rilasciata (non OTA, non beta).
@@ -226,7 +262,11 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
     private var shouldVerifyChecksum = true
     private var lastProgressTimestamp: Date?
     private var lastProgressBytesWritten: Int64 = 0
+    private var lastEmittedProgressTimestamp: Date?
+    private var lastEmittedProgressFraction: Double = 0
     private var pendingResumeDataHandler: ((Data?) -> Void)?
+    private let minProgressEmitInterval: TimeInterval = 0.20
+    private let minProgressEmitDelta: Double = 0.003
 
     private lazy var downloadSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -269,6 +309,8 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         shouldVerifyChecksum = verifyChecksum
         lastProgressTimestamp = nil
         lastProgressBytesWritten = 0
+        lastEmittedProgressTimestamp = nil
+        lastEmittedProgressFraction = 0
         if let resumeData {
             downloadTask = downloadSession.downloadTask(withResumeData: resumeData)
         } else {
@@ -283,6 +325,8 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         targetFirmware = nil
         lastProgressTimestamp = nil
         lastProgressBytesWritten = 0
+        lastEmittedProgressTimestamp = nil
+        lastEmittedProgressFraction = 0
     }
 
     func cancelProducingResumeData(_ completion: @escaping (Data?) -> Void) {
@@ -299,6 +343,8 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
                 self?.targetFirmware = nil
                 self?.lastProgressTimestamp = nil
                 self?.lastProgressBytesWritten = 0
+                self?.lastEmittedProgressTimestamp = nil
+                self?.lastEmittedProgressFraction = 0
             }
         })
     }
@@ -326,6 +372,19 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         }
         self.lastProgressTimestamp = now
         self.lastProgressBytesWritten = totalBytesWritten
+
+        // Throttle progress events to reduce expensive SwiftUI list updates on older Macs.
+        let shouldEmit: Bool = {
+            if progress >= 0.999 { return true }
+            if abs(progress - lastEmittedProgressFraction) >= minProgressEmitDelta { return true }
+            guard let lastEmittedProgressTimestamp else { return true }
+            return now.timeIntervalSince(lastEmittedProgressTimestamp) >= minProgressEmitInterval
+        }()
+
+        guard shouldEmit else { return }
+        lastEmittedProgressTimestamp = now
+        lastEmittedProgressFraction = progress
+
         let details = DownloadProgressDetails(
             fractionCompleted: progress,
             bytesWritten: totalBytesWritten,
@@ -352,14 +411,19 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
             let destinationFile = destinationDir.appendingPathComponent(fileName)
 
             // Notifica il ViewModel che stiamo verificando il checksum
-            if shouldVerifyChecksum, firmware.sha1 != nil {
+            if shouldVerifyChecksum, (firmware.sha256sum ?? firmware.sha1) != nil {
                 DispatchQueue.main.async { [weak self] in
                     self?.onVerifying?()
                 }
             }
 
-            // Verifica SHA1 se disponibile
-            if shouldVerifyChecksum, let expectedSHA1 = firmware.sha1 {
+            // Verifica SHA-256 (preferito) o SHA1 come fallback
+            if shouldVerifyChecksum, let expectedSHA256 = firmware.sha256sum {
+                let actualSHA256 = try sha256(of: location)
+                guard actualSHA256.lowercased() == expectedSHA256.lowercased() else {
+                    throw IPSWError.checksumMismatch(expected: expectedSHA256, actual: actualSHA256)
+                }
+            } else if shouldVerifyChecksum, let expectedSHA1 = firmware.sha1 {
                 let actualSHA1 = try sha1(of: location)
                 guard actualSHA1.lowercased() == expectedSHA1.lowercased() else {
                     throw IPSWError.checksumMismatch(expected: expectedSHA1, actual: actualSHA1)
@@ -401,6 +465,21 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         defer { try? handle.close() }
 
         var hasher = Insecure.SHA1()
+        let bufferSize = 1024 * 1024  // 1 MB chunks
+        while true {
+            guard let data = try handle.read(upToCount: bufferSize), !data.isEmpty else { break }
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    // MARK: - SHA-256 Checksum
+
+    private func sha256(of fileURL: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+
+        var hasher = SHA256()
         let bufferSize = 1024 * 1024  // 1 MB chunks
         while true {
             guard let data = try handle.read(upToCount: bufferSize), !data.isEmpty else { break }
@@ -455,25 +534,51 @@ enum IPSWError: LocalizedError {
     case downloadDirectoryUnavailable
     case checksumMismatch(expected: String, actual: String)
     case fullDiskAccessRequired
+    case networkTimeout
+    case connectionLost
+    case rateLimited
 
     var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "URL del firmware non valido."
+            return String(localized: "error.invalid_url")
         case .untrustedURL(let url):
-            return "URL non attendibile: \(url)"
+            return String(localized: "error.untrusted_url \(url)")
         case .invalidResponse:
-            return "Risposta non valida dal server."
+            return String(localized: "error.invalid_response")
         case .httpError(let code):
-            return "Errore HTTP: \(code)."
+            return String(localized: "error.http \(code)")
         case .noSignedFirmware:
-            return "Nessun firmware firmato disponibile per questo dispositivo."
+            return String(localized: "error.no_signed_firmware")
         case .downloadDirectoryUnavailable:
-            return "Impossibile accedere alla cartella di download."
+            return String(localized: "error.download_directory_unavailable")
         case .checksumMismatch(let expected, let actual):
-            return "Checksum SHA1 non corrisponde.\nAtteso: \(expected)\nRicevuto: \(actual)"
+            return String(localized: "error.checksum_mismatch \(expected) \(actual)")
         case .fullDiskAccessRequired:
             return String(localized: "error.full_disk_access_required")
+        case .networkTimeout:
+            return String(localized: "error.network_timeout")
+        case .connectionLost:
+            return String(localized: "error.connection_lost")
+        case .rateLimited:
+            return String(localized: "error.rate_limited")
+        }
+    }
+
+    var recoverySuggestion: String? {
+        switch self {
+        case .networkTimeout, .connectionLost:
+            return String(localized: "error.recovery.check_connection")
+        case .rateLimited:
+            return String(localized: "error.recovery.wait_retry")
+        case .fullDiskAccessRequired:
+            return String(localized: "error.recovery.full_disk_access")
+        case .checksumMismatch:
+            return String(localized: "error.recovery.redownload")
+        case .downloadDirectoryUnavailable:
+            return String(localized: "error.recovery.check_directory")
+        default:
+            return nil
         }
     }
 }

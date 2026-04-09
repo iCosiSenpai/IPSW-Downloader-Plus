@@ -32,6 +32,7 @@ struct ContentView: View {
         .frame(minWidth: 900, minHeight: 550)
         .navigationTitle(String(localized: "sidebar.nav_title"))
         .toolbar { mainToolbar }
+        .liquidGlassToolbar()
         .background {
             if !AppCompatibility.usesLegacySwiftUIWorkarounds {
                 WindowChromeConfigurator()
@@ -104,6 +105,8 @@ struct ContentView: View {
             } label: {
                 Label(String(localized: "dashboard.action.download"), systemImage: "arrow.down.circle.fill")
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(!viewModel.hasSelection)
             .help(String(localized: "dashboard.action.download"))
 
@@ -138,6 +141,7 @@ private struct GlobalDownloadBar: View {
             ProgressView(value: viewModel.globalProgressFraction)
                 .progressViewStyle(.linear)
                 .tint(settings.selectedTheme.accentColor)
+                .accessibilityValue(Text("\(Int(viewModel.globalProgressFraction * 100))%"))
 
             HStack(spacing: 12) {
                 Text(viewModel.globalProgressTitle)
@@ -160,25 +164,33 @@ private struct GlobalDownloadBar: View {
                         viewModel.resumeAllPausedDownloads()
                     }
                 } label: {
-                    Image(systemName: viewModel.hasActiveDownloads ? "pause.fill" : "play.fill")
-                        .font(.caption2)
+                    Label(
+                        viewModel.hasActiveDownloads
+                            ? String(localized: "download.pause_all")
+                            : String(localized: "download.resume_all"),
+                        systemImage: viewModel.hasActiveDownloads ? "pause.fill" : "play.fill"
+                    )
+                    .font(.caption.weight(.semibold))
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
                 .disabled(!viewModel.hasActiveDownloads && !viewModel.hasPausedDownloads)
                 .help(viewModel.hasActiveDownloads ? String(localized: "download.pause_all") : String(localized: "download.resume_all"))
 
                 Button(role: .destructive) {
                     viewModel.cancelAllManagedDownloads()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption2)
+                    Label(String(localized: "download.cancel_all"), systemImage: "xmark")
+                        .font(.caption.weight(.semibold))
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
                 .help(String(localized: "download.cancel_all"))
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+        .liquidGlass(cornerRadius: 0)
         .background(settings.selectedTheme.accentColor.opacity(colorScheme == .dark ? 0.08 : 0.05))
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(.separator), alignment: .bottom)
     }
@@ -207,7 +219,7 @@ private struct UpdateBanner: View {
                 viewModel.downloadFirmwareUpdates()
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .controlSize(.regular)
             Button {
                 viewModel.dismissUpdateBanner()
             } label: {
@@ -218,6 +230,7 @@ private struct UpdateBanner: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+        .liquidGlass(cornerRadius: 0)
         .background(Color.orange.opacity(0.08))
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(.separator), alignment: .bottom)
     }
@@ -249,10 +262,7 @@ struct SidebarView: View {
                 }
             }
             .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(settings.selectedTheme.secondarySurfaceColor(for: colorScheme))
-            )
+            .liquidGlass(cornerRadius: 8)
             .padding(.horizontal, 8)
             .padding(.top, 8)
             .padding(.bottom, 4)
@@ -440,6 +450,20 @@ struct SidebarView: View {
             }
             .listStyle(.sidebar)
             .animation(.default, value: viewModel.filteredDevices.map(\.identifier))
+            .onKeyPress(.return) {
+                if viewModel.hasSelection {
+                    viewModel.downloadSelectedDevices()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(characters: .init(charactersIn: "a")) { event in
+                if event.modifiers.contains(.command) {
+                    viewModel.selectAll()
+                    return .handled
+                }
+                return .ignored
+            }
         }
     }
 }
@@ -474,9 +498,19 @@ struct DeviceRowView: View {
                 Text(device.name)
                     .font(.callout.weight(.medium))
                     .lineLimit(1)
-                Text(device.identifier)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                HStack(spacing: 4) {
+                    Text(device.identifier)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    if let version = viewModel.deviceSortMetadata[device.identifier]?.latestFirmwareVersion {
+                        Text("\u{2022}")
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                        Text("\(device.osLabel) \(version)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
 
             Spacer()
@@ -640,6 +674,32 @@ struct DetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {
+                // Dashboard stats
+                if managedDevices.count + completedDevices.count + failedDevices.count > 0 {
+                    Section {
+                        HStack(spacing: 8) {
+                            if !activeDevices.isEmpty {
+                                SummaryChip(title: String(localized: "detail.section.active"), count: activeDevices.count, color: .blue)
+                            }
+                            if !pausedDevices.isEmpty {
+                                SummaryChip(title: String(localized: "detail.section.paused"), count: pausedDevices.count, color: .orange)
+                            }
+                            if !readyDevices.isEmpty {
+                                SummaryChip(title: String(localized: "detail.section.ready"), count: readyDevices.count, color: .secondary)
+                            }
+                            if !completedDevices.isEmpty {
+                                SummaryChip(title: String(localized: "download.completed"), count: completedDevices.count, color: .green)
+                            }
+                            if !failedDevices.isEmpty {
+                                SummaryChip(title: String(localized: "detail.section.failed"), count: failedDevices.count, color: .red)
+                            }
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                }
+
                 // Active + Paused downloads (merged)
                 if !activeDevices.isEmpty || !pausedDevices.isEmpty {
                     Section {
@@ -679,24 +739,47 @@ struct DetailView: View {
 
     // MARK: Empty State
 
+    @State private var emptyStateFloating = false
+
     private var emptyStateView: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 18) {
             Spacer()
-            Image(systemName: "arrow.down.circle")
-                .font(.system(size: 40))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [settings.selectedTheme.tintColor, settings.selectedTheme.accentColor],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                settings.selectedTheme.tintColor.opacity(0.18),
+                                settings.selectedTheme.accentColor.opacity(0.06),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 80
+                        )
                     )
-                )
+                    .frame(width: 120, height: 120)
+                    .blur(radius: 10)
+
+                Image(systemName: "arrow.down.circle")
+                    .font(.system(size: 52, weight: .thin))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [settings.selectedTheme.tintColor, settings.selectedTheme.accentColor],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .modifier(SymbolPulseEffectIfAvailable())
+                    .offset(y: emptyStateFloating ? -4 : 4)
+                    .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: emptyStateFloating)
+            }
 
             Text(String(localized: "detail.empty"))
                 .font(.system(.title3, design: .rounded, weight: .medium))
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 instructionRow(number: "1", text: String(localized: "detail.empty.step1"))
                 instructionRow(number: "2", text: String(localized: "detail.empty.step2"))
                 instructionRow(number: "3", text: String(localized: "detail.empty.step3"))
@@ -704,6 +787,7 @@ struct DetailView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+        .onAppear { emptyStateFloating = true }
     }
 
     private func instructionRow(number: String, text: String) -> some View {
@@ -951,6 +1035,7 @@ private struct ActivitySectionList: View {
                         }
                         .padding(.vertical, 1)
                         .listRowBackground(Color.clear)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                         .contextMenu {
                             Button {
                                 let text = "[\(entry.timestamp.formatted(date: .abbreviated, time: .shortened))] \(entry.title): \(entry.message)"
@@ -968,9 +1053,11 @@ private struct ActivitySectionList: View {
                         withAnimation { isCollapsed.toggle() }
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                            Image(systemName: "chevron.right")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                                .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                                .animation(.easeInOut(duration: 0.2), value: isCollapsed)
                             Text(String(localized: "detail.section.activity"))
                                 .font(.caption.weight(.bold))
                                 .textCase(.uppercase)
@@ -1011,6 +1098,8 @@ private struct ActivitySectionList: View {
 struct DownloadTaskCard: View {
     let device: IPSWDevice
     @ObservedObject var viewModel: IPSWViewModel
+    @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     private var state: DownloadState { viewModel.downloadState(for: device) }
     private var task: DeviceDownloadTask? { viewModel.downloadTasks[device.identifier] }
@@ -1058,15 +1147,14 @@ struct DownloadTaskCard: View {
             }
             .padding(.leading, 8)
             .padding(.trailing, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
         }
         .background(cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(cardBorder, lineWidth: 0.5)
-        )
+        .liquidGlassCard(theme: settings.selectedTheme, colorScheme: colorScheme, cornerRadius: 8)
+        .shadow(color: activeGlowColor, radius: isActiveState ? 8 : 0, y: 0)
         .animation(.easeInOut(duration: 0.25), value: stateKey)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(cardAccessibilityLabel)
     }
 
     @ViewBuilder
@@ -1097,6 +1185,8 @@ struct DownloadTaskCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
+                    .animation(.linear(duration: 0.5), value: progress)
+                    .accessibilityValue(Text("\(Int(progress * 100))%"))
                 HStack {
                     if let details = task?.progressDetails {
                         Text(details.transferredText).monospacedDigit()
@@ -1116,7 +1206,9 @@ struct DownloadTaskCard: View {
             }
         case .completed(let url):
             HStack {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .modifier(SymbolBounceEffectIfAvailable())
                 Text(String(localized: "download.completed")).foregroundStyle(.green)
                 Spacer()
                 Button(String(localized: "download.show_in_finder")) {
@@ -1145,41 +1237,54 @@ struct DownloadTaskCard: View {
                 Task { await viewModel.startDownload(for: device) }
             } label: {
                 Label(String(localized: "download.action.download"), systemImage: "arrow.down.circle")
+                    .labelStyle(.titleAndIcon)
+                    .frame(minWidth: 110)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .accessibilityHint(String(localized: "accessibility.hint.download"))
         case .queued, .downloading:
             Button {
                 viewModel.pauseDownload(for: device)
             } label: {
                 Label(String(localized: "download.action.pause"), systemImage: "pause.circle")
+                    .labelStyle(.titleAndIcon)
+                    .frame(minWidth: 110)
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
+            .controlSize(.regular)
             .tint(.orange)
+            .accessibilityHint(String(localized: "accessibility.hint.pause"))
         case .paused:
             Button {
                 viewModel.resumeDownload(for: device)
             } label: {
                 Label(String(localized: "download.action.resume"), systemImage: "play.circle")
+                    .labelStyle(.titleAndIcon)
+                    .frame(minWidth: 110)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .controlSize(.regular)
+            .accessibilityHint(String(localized: "accessibility.hint.resume"))
         case .verifying:
             Button { } label: {
                 Label(String(localized: "download.action.verifying"), systemImage: "checkmark.shield")
+                    .labelStyle(.titleAndIcon)
+                    .frame(minWidth: 110)
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
+            .controlSize(.regular)
             .disabled(true)
         case .completed:
             Button {
                 Task { await viewModel.startDownload(for: device) }
             } label: {
                 Label(String(localized: "download.action.redownload"), systemImage: "arrow.clockwise.circle")
+                    .labelStyle(.titleAndIcon)
+                    .frame(minWidth: 110)
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
+            .controlSize(.regular)
         }
     }
 
@@ -1204,6 +1309,7 @@ struct DownloadTaskCard: View {
             .background(color.opacity(0.12))
             .foregroundStyle(color)
             .clipShape(Capsule())
+            .transition(.scale.combined(with: .opacity))
     }
 
     private var stateKey: String {
@@ -1248,6 +1354,38 @@ struct DownloadTaskCard: View {
         case .idle: return .primary.opacity(0.06)
         }
     }
+
+    private var isActiveState: Bool {
+        switch state {
+        case .downloading, .queued, .verifying: return true
+        default: return false
+        }
+    }
+
+    private var activeGlowColor: Color {
+        switch state {
+        case .downloading, .queued, .verifying: return stateAccentColor.opacity(colorScheme == .dark ? 0.25 : 0.12)
+        case .completed: return .green.opacity(colorScheme == .dark ? 0.15 : 0.08)
+        default: return .clear
+        }
+    }
+
+    private var cardAccessibilityLabel: String {
+        var parts = [device.name]
+        if let fw = task?.firmware, fw.buildid != "pending" {
+            parts.append("\(device.osLabel) \(fw.version)")
+        }
+        switch state {
+        case .downloading(let p): parts.append(String(format: String(localized: "accessibility.downloading"), Int(p * 100)))
+        case .queued: parts.append(String(localized: "download.queued"))
+        case .paused: parts.append(String(localized: "download.paused"))
+        case .verifying: parts.append(String(localized: "download.verifying"))
+        case .completed: parts.append(String(localized: "download.completed"))
+        case .failed(let err): parts.append("\(String(localized: "detail.section.failed")): \(err)")
+        case .idle: break
+        }
+        return parts.joined(separator: ", ")
+    }
 }
 
 // MARK: - Supporting Views
@@ -1289,7 +1427,8 @@ private struct FilterChip: View {
             }
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(isActive ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08))
+            .liquidGlass(cornerRadius: 20)
+            .background(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
             .foregroundStyle(isActive ? Color.accentColor : .secondary)
             .clipShape(Capsule())
         }
@@ -1307,6 +1446,26 @@ private struct NumericTextTransitionIfAvailable: ViewModifier {
     }
 }
 
+private struct SymbolPulseEffectIfAvailable: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.symbolEffect(.pulse, options: .repeating)
+        } else {
+            content
+        }
+    }
+}
+
+private struct SymbolBounceEffectIfAvailable: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.symbolEffect(.bounce, options: .nonRepeating)
+        } else {
+            content
+        }
+    }
+}
+
 private struct WindowChromeConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -1320,8 +1479,13 @@ private struct WindowChromeConfigurator: NSViewRepresentable {
 
     private func configureWindow(for view: NSView) {
         guard let window = view.window else { return }
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = false
+        if #available(macOS 26.0, *) {
+            window.toolbarStyle = .unified
+            window.titlebarSeparatorStyle = .automatic
+        } else {
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = false
+        }
     }
 }
 

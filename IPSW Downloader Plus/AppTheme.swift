@@ -254,15 +254,12 @@ struct ThemePreviewCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(theme.surfaceColor(for: colorScheme))
-        )
+        .liquidGlassCard(theme: theme, colorScheme: colorScheme, cornerRadius: 14)
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .stroke(
-                    isSelected ? theme.tintColor : theme.borderColor(for: colorScheme),
-                    lineWidth: isSelected ? 2.5 : 0.5
+                    isSelected ? theme.tintColor : .clear,
+                    lineWidth: isSelected ? 2.5 : 0
                 )
         )
         .shadow(
@@ -283,12 +280,17 @@ struct ThemePanelBackground: ViewModifier {
     let cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
-        content
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(theme.borderColor(for: colorScheme), lineWidth: 0.5)
-            )
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(theme.borderColor(for: colorScheme), lineWidth: 0.5)
+                )
+        }
     }
 }
 
@@ -328,7 +330,7 @@ struct LiquidGlassModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular.interactive, in: .rect(cornerRadius: cornerRadius))
+            content.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
         } else {
             content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
         }

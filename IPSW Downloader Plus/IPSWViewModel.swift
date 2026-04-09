@@ -54,11 +54,13 @@ final class IPSWViewModel: ObservableObject {
     private let activityLogLimit = 120
     private let persistenceDebounceInterval: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(600)
     private let statePersistenceURL: URL
+    private let apiClient: any IPSWAPIService
     private var isRestoringPersistedState = false
     private var hasResumedPersistedDownloads = false
     private var deviceLoadSequence = 0
 
-    init() {
+    init(apiClient: any IPSWAPIService = IPSWAPIClient.shared) {
+        self.apiClient = apiClient
         let appSupportDirectory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library")
             .appendingPathComponent("Application Support")
@@ -278,7 +280,7 @@ final class IPSWViewModel: ObservableObject {
         isLoadingDevices = true
         deviceLoadError = nil
         do {
-            let fetchedDevices = try await IPSWAPIClient.shared.fetchDevices()
+            let fetchedDevices = try await apiClient.fetchDevices()
             guard isLatestDeviceLoad(sequence: currentLoadSequence) else { return }
             devices = fetchedDevices
             appendActivity(
@@ -384,8 +386,8 @@ final class IPSWViewModel: ObservableObject {
             templateError = nil
             defer { isApplyingLatestIOSTemplate = false }
             do {
-                let version = try await IPSWAPIClient.shared.fetchLatestIOSVersion()
-                let signedIDs = try await IPSWAPIClient.shared.fetchSignedDeviceIdentifiers(for: version)
+                let version = try await apiClient.fetchLatestIOSVersion()
+                let signedIDs = try await apiClient.fetchSignedDeviceIdentifiers(for: version)
                 // Interseca con i device iPhone/iPad presenti nella lista locale
                 let matching = devices.filter {
                     let lower = $0.identifier.lowercased()
@@ -538,7 +540,7 @@ final class IPSWViewModel: ObservableObject {
                 title: device.name,
                 message: String(format: String(localized: "activity.download_start"), attempt, maxDownloadRetryCount + 1)
             )
-            let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+            let detailed = try await apiClient.fetchDevice(identifier: device.identifier)
 
             // Controlla cancellazione dopo il fetch API (che può richiedere secondi)
             guard !Task.isCancelled else { return }
@@ -600,8 +602,10 @@ final class IPSWViewModel: ObservableObject {
             downloader.onProgress = { [weak self] progress in
                 Task { @MainActor [weak self] in
                     guard let self, self.isCurrentDownloader(downloader, for: identifier) else { return }
-                    self.downloadTasks[identifier]?.state = .downloading(progress: progress.fractionCompleted)
-                    self.downloadTasks[identifier]?.progressDetails = progress
+                    guard var task = self.downloadTasks[identifier] else { return }
+                    task.state = .downloading(progress: progress.fractionCompleted)
+                    task.progressDetails = progress
+                    self.downloadTasks[identifier] = task
                 }
             }
 
@@ -939,7 +943,7 @@ final class IPSWViewModel: ObservableObject {
         for (deviceID, _) in latestLocal {
             guard let device = devices.first(where: { $0.identifier == deviceID }) else { continue }
             do {
-                let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: deviceID)
+                let detailed = try await apiClient.fetchDevice(identifier: deviceID)
                 guard let latestFirmware = detailed.firmwares?.newestSignedFirmware() else { continue }
 
                 // Extract version from local filename if possible (format: DeviceID_Version_BuildID_Restore.ipsw)
@@ -1177,8 +1181,8 @@ final class IPSWViewModel: ObservableObject {
         var failedCount = 0
 
         do {
-            let latestVersion = try await IPSWAPIClient.shared.fetchLatestIOSVersion()
-            let signedIdentifiers = try await IPSWAPIClient.shared.fetchSignedDeviceIdentifiers(for: latestVersion)
+            let latestVersion = try await apiClient.fetchLatestIOSVersion()
+            let signedIdentifiers = try await apiClient.fetchSignedDeviceIdentifiers(for: latestVersion)
             let devicesToCheck = filteredDevices.filter { device in
                 device.identifier.lowercased().hasPrefix("iphone") &&
                 signedIdentifiers.contains(device.identifier)
@@ -1194,7 +1198,7 @@ final class IPSWViewModel: ObservableObject {
             for device in devicesToCheck {
                 checkedCount += 1
                 do {
-                    let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                    let detailed = try await apiClient.fetchDevice(identifier: device.identifier)
                     guard let firmware = detailed.firmwares?.newestSignedFirmware(version: latestVersion)
                     else {
                         skippedCount += 1
@@ -1292,7 +1296,7 @@ final class IPSWViewModel: ObservableObject {
                     if let targetFirmware {
                         firmware = targetFirmware
                     } else {
-                        let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                        let detailed = try await apiClient.fetchDevice(identifier: device.identifier)
                         guard let resolvedFirmware = detailed.firmwares?.newestSignedFirmware()
                         else {
                             markFailed(id: device.identifier,
@@ -1375,6 +1379,15 @@ final class IPSWViewModel: ObservableObject {
             let directory = statePersistenceURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(snapshot)
+
+            // Keep a backup of the previous valid state before overwriting
+            let backupURL = statePersistenceURL.appendingPathExtension("bak")
+            let fm = FileManager.default
+            if fm.fileExists(atPath: statePersistenceURL.path) {
+                try? fm.removeItem(at: backupURL)
+                try? fm.copyItem(at: statePersistenceURL, to: backupURL)
+            }
+
             try data.write(to: statePersistenceURL, options: [.atomic])
         } catch {
             NSLog("Failed to persist IPSW Downloader Plus state: %@", error.localizedDescription)
@@ -1386,17 +1399,29 @@ final class IPSWViewModel: ObservableObject {
         do {
             let data = try Data(contentsOf: statePersistenceURL)
             let snapshot = try JSONDecoder().decode(PersistedAppState.self, from: data)
-            isRestoringPersistedState = true
-            selectedDeviceIDs = snapshot.selectedDeviceIDs
-            downloadTasks = Self.normalizedRestoredTasks(snapshot.downloadTasks)
-            pendingDownloadQueue = snapshot.pendingDownloadQueue
-            activityLog = snapshot.activityLog
-            resumeDataStore = snapshot.resumeDataStore
-            isRestoringPersistedState = false
+            applyRestoredSnapshot(snapshot)
         } catch {
-            isRestoringPersistedState = false
-            NSLog("Failed to restore IPSW Downloader Plus state: %@", error.localizedDescription)
+            NSLog("Primary state file corrupted, trying backup: %@", error.localizedDescription)
+            // Attempt recovery from backup
+            let backupURL = statePersistenceURL.appendingPathExtension("bak")
+            if let backupData = try? Data(contentsOf: backupURL),
+               let snapshot = try? JSONDecoder().decode(PersistedAppState.self, from: backupData) {
+                applyRestoredSnapshot(snapshot)
+                NSLog("Restored IPSW Downloader Plus state from backup.")
+            } else {
+                NSLog("Failed to restore IPSW Downloader Plus state from backup.")
+            }
         }
+    }
+
+    private func applyRestoredSnapshot(_ snapshot: PersistedAppState) {
+        isRestoringPersistedState = true
+        selectedDeviceIDs = snapshot.selectedDeviceIDs
+        downloadTasks = Self.normalizedRestoredTasks(snapshot.downloadTasks)
+        pendingDownloadQueue = snapshot.pendingDownloadQueue
+        activityLog = snapshot.activityLog
+        resumeDataStore = snapshot.resumeDataStore
+        isRestoringPersistedState = false
     }
 
     private func resumePersistedDownloadsIfNeeded() {
@@ -1489,7 +1514,7 @@ final class IPSWViewModel: ObservableObject {
     }
 
     private func scheduleRetry(for device: IPSWDevice, firmware: IPSWFirmware?, attempt: Int, error: Error) {
-        let delaySeconds = min(Double(attempt * 2), 8)
+        let delaySeconds = min(pow(2.0, Double(attempt)), 16)
         updateTask(for: device.identifier) { task in
             task.state = .queued
             task.progressDetails = nil
@@ -1643,10 +1668,11 @@ final class IPSWViewModel: ObservableObject {
             let chunk = Array(devices[index..<min(index + chunkSize, devices.count)])
 
             await withTaskGroup(of: (String, DeviceSortMetadata?).self) { group in
+                let client = self.apiClient
                 for device in chunk {
                     group.addTask {
                         do {
-                            let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: device.identifier)
+                            let detailed = try await client.fetchDevice(identifier: device.identifier)
                             let metadata = Self.extractMetadata(from: detailed)
                             return (device.identifier, metadata)
                         } catch {

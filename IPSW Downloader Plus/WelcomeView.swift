@@ -124,7 +124,7 @@ struct WelcomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(14)
-        .themeMetricCardBackground(tint: tint, cornerRadius: 14)
+        .liquidGlassCard(theme: selectedTheme, colorScheme: colorScheme, cornerRadius: 14)
     }
 }
 
@@ -386,7 +386,8 @@ struct InitialSetupView: View {
             .foregroundStyle(isReached ? Color.accentColor : .secondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isCurrent ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06))
+            .liquidGlass(cornerRadius: 20)
+            .background(isCurrent ? Color.accentColor.opacity(0.12) : Color.clear)
             .clipShape(Capsule())
     }
 

@@ -420,6 +420,61 @@ final class AppSettings: ObservableObject {
         return String(format: String(localized: "schedule.days"), names, time)
     }
 
+    /// Computes the next scheduled fire date based on current schedule settings.
+    var nextScheduledRun: Date? {
+        guard autoLaunchEnabled else { return nil }
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Target time today
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = autoLaunchHour
+        components.minute = autoLaunchMinute
+        components.second = 0
+
+        let scheduledDays: Set<Int> = autoLaunchDays.isEmpty
+            ? Set(1...7)  // every day
+            : autoLaunchDays
+
+        // Check from today up to 8 days ahead to cover all weekdays
+        for offset in 0..<8 {
+            guard let candidate = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)) else {
+                continue
+            }
+            var candidateComponents = calendar.dateComponents([.year, .month, .day], from: candidate)
+            candidateComponents.hour = autoLaunchHour
+            candidateComponents.minute = autoLaunchMinute
+            candidateComponents.second = 0
+            guard let candidateDate = calendar.date(from: candidateComponents) else { continue }
+
+            let weekday = calendar.component(.weekday, from: candidateDate)
+            guard scheduledDays.contains(weekday) else { continue }
+            guard candidateDate > now else { continue }
+            return candidateDate
+        }
+        return nil
+    }
+
+    /// Formatted string describing the next scheduled run.
+    var nextScheduledRunDescription: String? {
+        guard let next = nextScheduledRun else { return nil }
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.doesRelativeDateFormatting = true
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        if calendar.isDateInToday(next) {
+            return String(format: String(localized: "schedule.next_run.today"),
+                          next.formatted(date: .omitted, time: .shortened))
+        } else if calendar.isDateInTomorrow(next) {
+            return String(format: String(localized: "schedule.next_run.tomorrow"),
+                          next.formatted(date: .omitted, time: .shortened))
+        } else {
+            return String(format: String(localized: "schedule.next_run.date"),
+                          formatter.string(from: next))
+        }
+    }
+
     var launchAgentStatusDescription: String {
         if let launchAgentError, !launchAgentError.isEmpty {
             return String(format: String(localized: "settings.schedule.agent.error"), launchAgentError)

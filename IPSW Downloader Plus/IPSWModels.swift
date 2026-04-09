@@ -150,6 +150,7 @@ struct IPSWFirmware: Codable, Identifiable {
     let version: String
     let buildid: String
     let sha1: String?
+    let sha256sum: String?
     let filesize: Int64?
     let url: String
     let filename: String?
@@ -161,9 +162,11 @@ struct IPSWFirmware: Codable, Identifiable {
     // L'API usa nomi diversi a seconda dell'endpoint:
     //   /device/{id}       → sha1
     //   /ipsw/{version}    → sha1sum
+    // sha256sum è supportato quando l'API lo fornisce.
     enum CodingKeys: String, CodingKey {
         case identifier, version, buildid
         case sha1, sha1sum
+        case sha256sum
         case filesize, url, filename
         case releasedate, signed
     }
@@ -173,6 +176,7 @@ struct IPSWFirmware: Codable, Identifiable {
         version: String,
         buildid: String,
         sha1: String?,
+        sha256sum: String? = nil,
         filesize: Int64?,
         url: String,
         filename: String?,
@@ -183,6 +187,7 @@ struct IPSWFirmware: Codable, Identifiable {
         self.version = version
         self.buildid = buildid
         self.sha1 = sha1
+        self.sha256sum = sha256sum
         self.filesize = filesize
         self.url = url
         self.filename = filename
@@ -202,6 +207,7 @@ struct IPSWFirmware: Codable, Identifiable {
         signed      = try c.decode(Bool.self,     forKey: .signed)
         sha1   = try c.decodeIfPresent(String.self, forKey: .sha1)
             ?? c.decodeIfPresent(String.self, forKey: .sha1sum)
+        sha256sum = try c.decodeIfPresent(String.self, forKey: .sha256sum)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -210,6 +216,7 @@ struct IPSWFirmware: Codable, Identifiable {
         try container.encode(version, forKey: .version)
         try container.encode(buildid, forKey: .buildid)
         try container.encodeIfPresent(sha1, forKey: .sha1)
+        try container.encodeIfPresent(sha256sum, forKey: .sha256sum)
         try container.encodeIfPresent(filesize, forKey: .filesize)
         try container.encode(url, forKey: .url)
         try container.encodeIfPresent(filename, forKey: .filename)
@@ -251,6 +258,7 @@ struct IPSWFirmware: Codable, Identifiable {
             version: "-",
             buildid: "pending",
             sha1: nil,
+            sha256sum: nil,
             filesize: nil,
             url: "https://example.invalid/placeholder.ipsw",
             filename: nil,

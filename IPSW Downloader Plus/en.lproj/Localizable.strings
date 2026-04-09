@@ -178,6 +178,7 @@
 "settings.download.notify.toggle" = "Notify when each download completes";
 "settings.download.notify.footer" = "Sends a macOS notification when an .ipsw file is successfully downloaded and verified. Requires Notifications permission.";
 "settings.download.folder_size.title" = "Folder size";
+"settings.download.folder_size.files" = "%lld files";
 "settings.schedule.autolaunch.title" = "Automatic launch";
 "settings.schedule.autolaunch.toggle" = "Enable automatic scheduling";
 "settings.schedule.autolaunch.footer" = "Installs a LaunchAgent in ~/Library/LaunchAgents that launches the app at the chosen time to download updated firmware.";
@@ -207,6 +208,7 @@
 "settings.schedule.login_warning" = "Scheduling requires Automatic Login to be enabled in System Settings → Users & Groups. Without it, the Mac cannot run scheduled tasks when shut down or restarted.";
 "settings.devices.warning" = "Select at least one device category.";
 "settings.devices.types.title" = "Device types";
+"settings.devices.search" = "Filter devices…";
 "settings.devices.minimum" = "minimum required";
 "settings.devices.footer" = "Deselected types are ignored in manual and automatic downloads. At least one must remain active.";
 "settings.appearance.title" = "Appearance";
@@ -230,6 +232,9 @@
 "schedule.disabled" = "Disabled";
 "schedule.every_day" = "Every day at %@";
 "schedule.days" = "%@ at %@";
+"schedule.next_run.today" = "Next run: today at %@";
+"schedule.next_run.tomorrow" = "Next run: tomorrow at %@";
+"schedule.next_run.date" = "Next run: %@";
 
 /* WakeScheduler */
 "wake.error.cancelled" = "Authorization cancelled by the user.";
@@ -270,6 +275,22 @@
 "setup.summary.disabled" = "Disabled";
 "setup.open.settings" = "Open settings";
 "setup.finish" = "Open app";
+
+/* IPSWError */
+"error.invalid_url" = "Invalid firmware URL.";
+"error.untrusted_url %@" = "Untrusted URL: %@";
+"error.invalid_response" = "Invalid response from server.";
+"error.http %lld" = "HTTP error: %lld.";
+"error.download_directory_unavailable" = "Unable to access download directory.";
+"error.checksum_mismatch %@ %@" = "Checksum mismatch.\nExpected: %1$@\nReceived: %2$@";
+"error.network_timeout" = "Request timed out.";
+"error.connection_lost" = "Network connection lost.";
+"error.rate_limited" = "Too many requests — server rate limit reached.";
+"error.recovery.check_connection" = "Check your internet connection and try again.";
+"error.recovery.wait_retry" = "Wait a few minutes, then retry.";
+"error.recovery.full_disk_access" = "Open System Settings → Privacy & Security → Full Disk Access and enable IPSW Downloader Plus.";
+"error.recovery.redownload" = "The downloaded file is corrupted. Try downloading again.";
+"error.recovery.check_directory" = "Verify the download directory exists and is writable.";
 
 /* IPSWViewModel */
 "error.no_signed_firmware" = "No signed firmware available";
@@ -338,6 +359,9 @@
 /* Accessibility */
 "accessibility.selected" = "Selected";
 "accessibility.downloading" = "Downloading %lld%%";
+"accessibility.hint.download" = "Start downloading firmware for this device";
+"accessibility.hint.pause" = "Pause the ongoing download";
+"accessibility.hint.resume" = "Resume the paused download";
 
 /* Detail empty state */
 "detail.empty.step1" = "Select devices from the sidebar";

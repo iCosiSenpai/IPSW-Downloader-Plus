@@ -1,89 +1,120 @@
+<div align="center">
+
 # IPSW Downloader Plus
 
-macOS app to browse, select, and download Apple IPSW firmware into the correct local folders for Finder and Apple Configurator.
+**Native macOS app to browse, download, and manage Apple IPSW firmware** — keeps your local archives up to date with one click.
 
-Repository: [iCosiSenpai/IPSW-Downloader-Plus](https://github.com/iCosiSenpai/IPSW-Downloader-Plus)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/iCosiSenpai/IPSW-Downloader-Plus?include_prereleases&label=Release)](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple&logoColor=white)](https://developer.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-5-orange?logo=swift&logoColor=white)](https://swift.org)
+[![Tests](https://img.shields.io/badge/Tests-40%2F40-brightgreen?logo=checkmarx&logoColor=white)](#testing)
 
-## Overview
+<br>
 
-IPSW Downloader Plus is a native SwiftUI app for macOS that helps keep local IPSW firmware archives up to date.
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-blue?logo=paypal&logoColor=white)](https://paypal.me/AlessioCosi)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/icosisenpai)
 
-It can:
+</div>
 
-- fetch device and firmware data from `ipsw.me`
-- organize downloads by device category
-- save firmware in Apple's default folders or in a custom destination
-- queue and manage multiple downloads with throttling
-- retry transient failures and resume interrupted downloads
-- verify SHA1 checksums
-- monitor local firmware folders
-- schedule automatic launches
-- optionally configure Mac wake scheduling
-- restore state, pending tasks, and activity history between launches
+---
 
 ## Features
 
-- Dashboard header with live metrics (devices, selected, active downloads)
-- Device sidebar with search, filters, sorting, and quick-select templates
-- Batch download flow for selected devices
-- Download center grouped by state (active, paused, ready, completed, failed)
-- Global progress bar with transfer speed and ETA
-- Customizable themes with accent colors and gradients
-- Persisted queue, activity log, and resumed downloads after relaunch
-- Custom download folder support
-- Full Disk Access guidance for default Apple folders
-- Guided welcome and initial setup flow
-- Automatic cleanup of outdated firmware
-- LaunchAgent status and scheduled run reporting
-- Local notifications for completed downloads
-- English and Italian localization
+| | |
+|---|---|
+| **Device Browser** | Sidebar with search, filters, sorting, quick-select templates, and device type chips |
+| **Batch Downloads** | Queue multiple devices, throttled concurrent downloads with progress, ETA, and transfer speed |
+| **Smart Storage** | Auto-saves to Apple's default iTunes / Configurator folders, or a custom directory |
+| **Integrity Checks** | SHA-256 (preferred) and SHA-1 checksum verification after download |
+| **Resume & Retry** | Interrupted downloads resume automatically; transient failures retry with exponential backoff |
+| **Firmware Updates** | Detects when newer firmware is available for locally downloaded versions |
+| **Auto Cleanup** | Removes outdated firmware files on startup |
+| **Scheduling** | LaunchAgent for automatic app launch + optional Mac wake via `pmset` |
+| **State Persistence** | Restores queue, activity log, resume data, and selections between launches |
+| **Dashboard** | Live metrics — active downloads, global progress bar, transfer stats, status chips |
+| **Themes** | Customizable themes with accent colors, gradients, light/dark/auto appearance |
+| **Liquid Glass** | Native macOS 26 Liquid Glass effects with graceful fallback on macOS 14–15 |
+| **Accessibility** | VoiceOver labels, hints, and values on all interactive elements |
+| **Localization** | English and Italian |
+| **Notifications** | Local notifications for completed downloads |
 
 ## Requirements
 
-- macOS Sonoma 14.0 or later
-- Full Disk Access if you want to write directly to Apple's default firmware folders
+- **macOS Sonoma 14.0** or later
+- **Full Disk Access** (optional) — required only to write to Apple's default firmware folders
 
-## Build from Source
+## Installation
 
-1. Install Xcode 16 or later.
-2. Open `IPSW Downloader Plus.xcodeproj`.
-3. Select the `IPSW Downloader Plus` scheme.
-4. Build and run.
+### Download
 
-## Default Download Locations
+Grab the latest release from the [Releases page](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases).
 
-Depending on device type, the app uses:
+### Build from Source
 
-- `~/Library/iTunes/... Software Updates`
-- `~/Library/Group Containers/K36BKF7T3D.group.com.apple.configurator/Library/Caches/Firmware`
+1. Install **Xcode 16** or later
+2. Open `IPSW Downloader Plus.xcodeproj`
+3. Select the **IPSW Downloader Plus** scheme
+4. Build and run (`⌘R`)
 
-If a custom folder is configured, downloads are written there instead.
+## Download Locations
+
+| Device Type | Default Path |
+|---|---|
+| iPhone, iPad, iPod | `~/Library/iTunes/{Product} Software Updates` |
+| Apple TV, HomePod, Mac | `~/Library/Group Containers/K36BKF7T3D.group.com.apple.configurator/Library/Caches/Firmware` |
+
+If a custom folder is configured in Settings, all downloads go there instead.
 
 ## Scheduling
 
-The app supports two separate scheduling features:
+The app supports two independent scheduling features:
 
-- Automatic app launch via LaunchAgent
-- Mac wake scheduling via `pmset`
+- **Automatic launch** — LaunchAgent-based, runs the app on a schedule
+- **Mac wake** — `pmset`-based, wakes the Mac before the scheduled launch (requires admin)
 
-They are intentionally separate in the UI:
+They are intentionally separate so you can use one without the other.
 
-- enabling automatic scheduling saves the app schedule
-- Mac wake requires a separate admin-authorized action
+## Firmware Data
 
-## Source Of Firmware Data
+- Device and firmware metadata from [ipsw.me](https://ipsw.me)
+- Downloads restricted to official Apple CDN domains (`updates.cdn-apple.com`, `appldnld.apple.com`, `secure-appldnld.apple.com`)
 
-- Device and firmware metadata: [ipsw.me](https://ipsw.me)
-- Downloads are limited to official Apple CDN domains
+## Testing
 
-## Release
+The project includes 40 unit tests using Swift Testing:
 
-Current release: [v26.0.1](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/tag/v26.0.1)
+```bash
+# Run all tests
+./scripts/build-test-archive.sh
 
-DMG download: [IPSW Downloader Plus 26.0.1.dmg](https://github.com/iCosiSenpai/IPSW-Downloader-Plus/releases/download/v26.0.1/IPSW%20Downloader%20Plus%2026.0.1.dmg)
+# Build + archive only (skip tests)
+./scripts/build-test-archive.sh --skip-test
+```
 
-## Support
+Test suites cover: ViewModel API (mock injection), device categories, firmware selection & preference, SHA-256/SHA-1 decoding, download progress formatting, error descriptions, URL trust validation, theme behavior, persisted state round-trips, retry policy, scheduling, and Full Disk Access resolution.
 
-If you want to support development:
+## Scripts
 
-- PayPal: [paypal.me/AlessioCosi](https://paypal.me/AlessioCosi)
+| Script | Purpose |
+|---|---|
+| `scripts/build-test-archive.sh` | Test → Archive → Export to `Releases/` → Verify architectures |
+| `scripts/sign-and-notarize-app.sh` | Code sign + notarize + staple a `.app` bundle |
+| `scripts/sign-and-notarize-releases.sh` | Wrapper that signs `Releases/IPSW Downloader Plus.app` |
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the security policy and responsible disclosure process.
+
+## License
+
+MIT License — Copyright (c) 2026 iCosiSenpai. See [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-blue?logo=paypal&logoColor=white)](https://paypal.me/AlessioCosi)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/icosisenpai)
+
+</div>
