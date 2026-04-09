@@ -33,6 +33,9 @@ final class IPSWViewModel: ObservableObject {
     @Published private(set) var activityLog: [ActivityLogEntry] = []
     @Published var activeDeviceTypeFilter: String? = nil
 
+    // Firmware updates detected at startup (device, local version, latest version)
+    @Published var firmwareUpdatesAvailable: [(device: IPSWDevice, localVersion: String, latestVersion: String, firmware: IPSWFirmware)] = []
+
     // Riferimento alle impostazioni globali
     private let settings = AppSettings.shared
 
@@ -304,6 +307,10 @@ final class IPSWViewModel: ObservableObject {
         restartDirectoryMonitoring()
         refreshLocalFirmwareState()
         resumePersistedDownloadsIfNeeded()
+
+        // After devices are loaded, check for firmware updates and cleanup old files
+        await checkForFirmwareUpdates()
+        cleanupOutdatedFirmwareOnStartup()
     }
 
     // MARK: - Selection
@@ -903,6 +910,164 @@ final class IPSWViewModel: ObservableObject {
 
     func clearActivityLog() {
         activityLog.removeAll()
+    }
+
+    // MARK: - Firmware Update Detection
+
+    /// Compares locally downloaded firmware with the latest signed firmware from the API.
+    /// Populates `firmwareUpdatesAvailable` with devices that have newer firmware available.
+    func checkForFirmwareUpdates() async {
+        let localRecords = downloadedFirmware
+        guard !localRecords.isEmpty, !devices.isEmpty else { return }
+
+        // Group local records by device identifier, pick the newest local file per device
+        var latestLocal: [String: LocalFirmwareRecord] = [:]
+        for record in localRecords {
+            guard let deviceID = record.deviceIdentifier else { continue }
+            if let existing = latestLocal[deviceID] {
+                // Keep the one with the most recent modification date
+                if let newDate = record.modifiedAt, let oldDate = existing.modifiedAt, newDate > oldDate {
+                    latestLocal[deviceID] = record
+                }
+            } else {
+                latestLocal[deviceID] = record
+            }
+        }
+
+        var updates: [(device: IPSWDevice, localVersion: String, latestVersion: String, firmware: IPSWFirmware)] = []
+
+        for (deviceID, _) in latestLocal {
+            guard let device = devices.first(where: { $0.identifier == deviceID }) else { continue }
+            do {
+                let detailed = try await IPSWAPIClient.shared.fetchDevice(identifier: deviceID)
+                guard let latestFirmware = detailed.firmwares?.newestSignedFirmware() else { continue }
+
+                // Extract version from local filename if possible (format: DeviceID_Version_BuildID_Restore.ipsw)
+                let localVersion = extractVersionFromLocalFirmware(deviceID: deviceID)
+
+                if let localVer = localVersion {
+                    // Compare versions
+                    if latestFirmware.version.compare(localVer, options: .numeric) == .orderedDescending {
+                        updates.append((device: device, localVersion: localVer, latestVersion: latestFirmware.version, firmware: latestFirmware))
+                    }
+                } else {
+                    // Can't determine local version — check if API firmware file exists locally
+                    if let existingURL = localFileURL(for: latestFirmware), fileIsComplete(firmware: latestFirmware, at: existingURL) {
+                        // Already have the latest — skip
+                    } else {
+                        updates.append((device: device, localVersion: "?", latestVersion: latestFirmware.version, firmware: latestFirmware))
+                    }
+                }
+            } catch {
+                // Network error for one device — skip silently and continue
+                continue
+            }
+        }
+
+        firmwareUpdatesAvailable = updates
+
+        if !updates.isEmpty {
+            appendActivity(
+                kind: .info,
+                deviceIdentifier: nil,
+                title: String(localized: "activity.updates_available.title"),
+                message: String(format: String(localized: "activity.updates_available.message"), updates.count)
+            )
+        }
+    }
+
+    /// Extracts the firmware version string from local IPSW filenames for a given device.
+    private func extractVersionFromLocalFirmware(deviceID: String) -> String? {
+        let records = downloadedFirmware.filter { $0.deviceIdentifier == deviceID }
+        // IPSW filenames typically contain the version: "iPhone16,2_18.3.1_22D72_Restore.ipsw"
+        // Pattern: {identifier}_{version}_{buildid}_Restore.ipsw
+        let prefix = deviceID + "_"
+        for record in records {
+            let name = record.fileName
+            guard name.hasPrefix(prefix) else { continue }
+            let rest = String(name.dropFirst(prefix.count))
+            // rest = "18.3.1_22D72_Restore.ipsw"
+            let parts = rest.split(separator: "_", maxSplits: 2)
+            guard parts.count >= 2 else { continue }
+            let version = String(parts[0])
+            // Validate it looks like a version number
+            if version.range(of: #"^\d+(\.\d+)*$"#, options: .regularExpression) != nil {
+                return version
+            }
+        }
+        return nil
+    }
+
+    /// Download firmware updates for all devices in the update banner.
+    func downloadFirmwareUpdates() {
+        for update in firmwareUpdatesAvailable {
+            if !selectedDeviceIDs.contains(update.device.identifier) {
+                selectedDeviceIDs.insert(update.device.identifier)
+            }
+        }
+        let devicesToUpdate = firmwareUpdatesAvailable.map(\.device)
+        firmwareUpdatesAvailable.removeAll()
+
+        for device in devicesToUpdate {
+            Task { await startDownload(for: device) }
+        }
+    }
+
+    /// Dismiss the update banner without downloading.
+    func dismissUpdateBanner() {
+        firmwareUpdatesAvailable.removeAll()
+    }
+
+    // MARK: - Startup Cleanup of Outdated Firmware
+
+    /// Scans local firmware and removes old versions, keeping only the latest file per device.
+    func cleanupOutdatedFirmwareOnStartup() {
+        let localRecords = downloadedFirmware
+        guard !localRecords.isEmpty else { return }
+
+        // Group by device identifier
+        var recordsByDevice: [String: [LocalFirmwareRecord]] = [:]
+        for record in localRecords {
+            guard let deviceID = record.deviceIdentifier else { continue }
+            recordsByDevice[deviceID, default: []].append(record)
+        }
+
+        let deleteMode = settings.deleteMode
+        let fm = FileManager.default
+        var removedCount = 0
+
+        for (_, records) in recordsByDevice {
+            guard records.count > 1 else { continue }
+
+            // Sort by modification date descending — keep the first (newest)
+            let sorted = records.sorted { lhs, rhs in
+                switch (lhs.modifiedAt, rhs.modifiedAt) {
+                case let (l?, r?): return l > r
+                default: return lhs.fileName > rhs.fileName
+                }
+            }
+
+            // Remove all except the newest
+            for record in sorted.dropFirst() {
+                switch deleteMode {
+                case .permanent:
+                    try? fm.removeItem(at: record.location)
+                case .trash:
+                    try? fm.trashItem(at: record.location, resultingItemURL: nil)
+                }
+                removedCount += 1
+            }
+        }
+
+        if removedCount > 0 {
+            appendActivity(
+                kind: .info,
+                deviceIdentifier: nil,
+                title: String(localized: "activity.cleanup.title"),
+                message: String(format: String(localized: "activity.cleanup.message"), removedCount)
+            )
+            refreshLocalFirmwareState()
+        }
     }
 
     /// Dock badge count: number of actively downloading items

@@ -394,3 +394,64 @@
 "dashboard.action.pause_resume" = "Pause or resume";
 "dashboard.action.folder" = "Open folder";
 "dashboard.action.settings" = "Settings";
+
+/* Update Banner */
+"updates.banner.title" = "Firmware updates available";
+"updates.banner.message" = "%lld device(s) have newer firmware";
+"updates.banner.download" = "Update all";
+
+/* Activity — Update Detection & Cleanup */
+"activity.updates_available.title" = "Updates available";
+"activity.updates_available.message" = "%lld device(s) have newer firmware available.";
+"activity.cleanup.title" = "Old firmware cleaned";
+"activity.cleanup.message" = "Removed %lld outdated firmware file(s).";
+
+/* ContentView — New UI */
+"detail.navigation.title" = "Downloads";
+"detail.empty.step1" = "Select devices from the sidebar";
+"detail.empty.step2" = "Press the download button in the toolbar";
+"detail.empty.step3" = "Track progress here";
+"sidebar.selection_badge" = "%lld selected";
+"sidebar.invert_selection.help" = "Invert selection";
+"sidebar.device_count" = "%lld devices";
+"sidebar.device_count.filtered" = "%lld of %lld";
+"search.no_results" = "No results";
+"search.clear" = "Clear search";
+"search.empty_list" = "No devices available";
+"filter.all" = "All";
+"download.action.download" = "Download";
+"download.action.pause" = "Pause";
+"download.action.resume" = "Resume";
+"download.action.verifying" = "Verifying…";
+"download.action.redownload" = "Re-download";
+"download.in_progress" = "Downloading";
+"download.signed" = "Signed";
+"download.eta" = "ETA %@";
+"download.remove" = "Remove";
+"download.show_in_finder" = "Show in Finder";
+"download.pause_all" = "Pause all";
+"download.resume_all" = "Resume all";
+"download.cancel_all" = "Cancel all";
+"download.pause" = "Pause";
+"download.resume" = "Resume";
+"download.cancel" = "Cancel";
+"download.retry_all" = "Retry all";
+"download.clear_completed" = "Clear completed";
+"context.copy_identifier" = "Copy identifier";
+"context.copy_name" = "Copy name";
+"context.copy_download_url" = "Copy download URL";
+"context.copy_path" = "Copy path";
+"context.move_to_trash" = "Move to Trash";
+"context.select" = "Select";
+"context.deselect" = "Deselect";
+"accessibility.selected" = "Selected";
+"accessibility.downloading" = "Downloading %lld%%";
+"activity.copy_entry" = "Copy entry";
+"activity.clear" = "Clear";
+"confirm.cancel_download.title" = "Cancel download?";
+"confirm.cancel_download.action" = "Cancel";
+"confirm.cancel_download.message" = "The download will be stopped and removed.";
+"confirm.remove_device.title" = "Remove device?";
+"confirm.remove_device.action" = "Remove";
+"confirm.remove_device.message" = "The device will be removed from the download list.";
+"settings.menu.open" = "Settings";

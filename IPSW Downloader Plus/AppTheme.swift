@@ -319,3 +319,67 @@ extension View {
         modifier(ThemeMetricCardBackground(tint: tint, cornerRadius: cornerRadius))
     }
 }
+
+// MARK: - macOS 26 Liquid Glass
+
+/// On macOS 26+, applies the Liquid Glass effect to views. Falls back to standard material on older systems.
+struct LiquidGlassModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.interactive, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+        }
+    }
+}
+
+/// Applies Liquid Glass toolbar styling on macOS 26+.
+struct LiquidGlassToolbarModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.toolbarBackgroundVisibility(.visible, for: .windowToolbar)
+        } else {
+            content
+        }
+    }
+}
+
+/// Card modifier that uses Liquid Glass on macOS 26, standard surface on older.
+struct LiquidGlassCardModifier: ViewModifier {
+    let theme: AppTheme
+    let colorScheme: ColorScheme
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(theme.borderColor(for: colorScheme), lineWidth: 0.5)
+                )
+        }
+    }
+}
+
+extension View {
+    /// Apply Liquid Glass on macOS 26+, ultraThinMaterial fallback on older.
+    func liquidGlass(cornerRadius: CGFloat = 12) -> some View {
+        modifier(LiquidGlassModifier(cornerRadius: cornerRadius))
+    }
+
+    /// Apply Liquid Glass toolbar effect on macOS 26+.
+    func liquidGlassToolbar() -> some View {
+        modifier(LiquidGlassToolbarModifier())
+    }
+
+    /// Card surface with Liquid Glass on macOS 26+, themed background on older.
+    func liquidGlassCard(theme: AppTheme, colorScheme: ColorScheme, cornerRadius: CGFloat = 12) -> some View {
+        modifier(LiquidGlassCardModifier(theme: theme, colorScheme: colorScheme, cornerRadius: cornerRadius))
+    }
+}

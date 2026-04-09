@@ -418,13 +418,15 @@ final class IPSWDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sen
         guard let contents = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
 
         let deleteMode = AppSettings.shared.deleteMode
-        let devicePrefix = deviceIdentifier.lowercased()
+        // Use precise matching: filename must start with "DeviceIdentifier_" (e.g. "iPhone16,2_")
+        // This prevents "iPhone16,2" from matching "iPhone16,20_..." files
+        let devicePrefix = deviceIdentifier + "_"
 
         for fileURL in contents {
             let name = fileURL.lastPathComponent
             guard name.hasSuffix(".ipsw"),
                   name != currentFileName,
-                  name.lowercased().contains(devicePrefix) else { continue }
+                  name.hasPrefix(devicePrefix) else { continue }
 
             switch deleteMode {
             case .permanent:

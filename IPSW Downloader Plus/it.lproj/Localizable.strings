@@ -394,3 +394,64 @@
 "dashboard.action.pause_resume" = "Pausa o riprendi";
 "dashboard.action.folder" = "Apri cartella";
 "dashboard.action.settings" = "Impostazioni";
+
+/* Banner aggiornamenti */
+"updates.banner.title" = "Aggiornamenti firmware disponibili";
+"updates.banner.message" = "%lld dispositivo/i con firmware più recente";
+"updates.banner.download" = "Aggiorna tutti";
+
+/* Attività — Rilevamento aggiornamenti & pulizia */
+"activity.updates_available.title" = "Aggiornamenti disponibili";
+"activity.updates_available.message" = "%lld dispositivo/i con firmware più recente disponibile.";
+"activity.cleanup.title" = "Firmware obsoleti rimossi";
+"activity.cleanup.message" = "Rimossi %lld file firmware obsoleti.";
+
+/* ContentView — Nuova UI */
+"detail.navigation.title" = "Download";
+"detail.empty.step1" = "Seleziona dispositivi dalla barra laterale";
+"detail.empty.step2" = "Premi il pulsante download nella toolbar";
+"detail.empty.step3" = "Segui i progressi qui";
+"sidebar.selection_badge" = "%lld selezionati";
+"sidebar.invert_selection.help" = "Inverti selezione";
+"sidebar.device_count" = "%lld dispositivi";
+"sidebar.device_count.filtered" = "%lld di %lld";
+"search.no_results" = "Nessun risultato";
+"search.clear" = "Cancella ricerca";
+"search.empty_list" = "Nessun dispositivo disponibile";
+"filter.all" = "Tutti";
+"download.action.download" = "Scarica";
+"download.action.pause" = "Pausa";
+"download.action.resume" = "Riprendi";
+"download.action.verifying" = "Verifica…";
+"download.action.redownload" = "Riscarica";
+"download.in_progress" = "In corso";
+"download.signed" = "Firmato";
+"download.eta" = "Tempo rimanente %@";
+"download.remove" = "Rimuovi";
+"download.show_in_finder" = "Mostra nel Finder";
+"download.pause_all" = "Metti in pausa tutti";
+"download.resume_all" = "Riprendi tutti";
+"download.cancel_all" = "Annulla tutti";
+"download.pause" = "Pausa";
+"download.resume" = "Riprendi";
+"download.cancel" = "Annulla";
+"download.retry_all" = "Riprova tutti";
+"download.clear_completed" = "Rimuovi completati";
+"context.copy_identifier" = "Copia identificatore";
+"context.copy_name" = "Copia nome";
+"context.copy_download_url" = "Copia URL download";
+"context.copy_path" = "Copia percorso";
+"context.move_to_trash" = "Sposta nel Cestino";
+"context.select" = "Seleziona";
+"context.deselect" = "Deseleziona";
+"accessibility.selected" = "Selezionato";
+"accessibility.downloading" = "Download %lld%%";
+"activity.copy_entry" = "Copia voce";
+"activity.clear" = "Cancella";
+"confirm.cancel_download.title" = "Annullare il download?";
+"confirm.cancel_download.action" = "Annulla";
+"confirm.cancel_download.message" = "Il download verrà interrotto e rimosso.";
+"confirm.remove_device.title" = "Rimuovere il dispositivo?";
+"confirm.remove_device.action" = "Rimuovi";
+"confirm.remove_device.message" = "Il dispositivo verrà rimosso dalla lista download.";
+"settings.menu.open" = "Impostazioni";
